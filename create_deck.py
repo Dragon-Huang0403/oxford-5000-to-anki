@@ -450,20 +450,25 @@ CARD_CSS = """
 .verb-forms td { padding: 3px 8px; color: var(--text); }
 .vf-audio { color: var(--text-muted); }
 
+/* ── Front ──────────────────────────────────────────── */
+.front { text-align: center; }
+.front .headword { font-size: 100px; }
+
 hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
 """
 
 FRONT_TMPL = """
-<div class="headword">{{Word}}</div>
-<span class="pos">{{PoS}}</span>
-<hr>
-<div class="phonetics">
-  <span class="dialect">GB</span> <span class="ipa">{{IPA GB}}</span>
-  &nbsp;&nbsp;
-  <span class="dialect">US</span> <span class="ipa">{{IPA US}}</span>
-  &nbsp; {{Audio Word US}}
+<div class="front">
+    <div class="headword">{{Word}}</div>
+    <span class="pos">{{PoS}}</span>
+    <hr>
+    <div class="phonetics">
+    <span class="dialect">GB</span> <span class="ipa">{{IPA GB}}</span>
+    &nbsp;&nbsp;
+    <span class="dialect">US</span> <span class="ipa">{{IPA US}}</span>
+    &nbsp; {{Audio Word US}}
+    </div>
 </div>
-{{#Verb Forms}}<div class="verb-forms-section">{{Verb Forms}}</div>{{/Verb Forms}}
 """
 
 BACK_TMPL = """
