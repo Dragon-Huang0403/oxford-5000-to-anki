@@ -450,7 +450,8 @@ CARD_CSS = """
 }
 
 /* ── Front ───────────────────────────────────────────────── */
-.headword { font-size: 2em; font-weight: 700; color: var(--accent); }
+.front { text-align: center; }
+.headword { font-size: 3em; font-weight: 700; color: var(--accent); }
 .pos      { font-size: 0.85em; color: var(--text-muted); margin-left: 6px; font-style: italic; }
 
 /* ── Phonetics ───────────────────────────────────────────── */
@@ -483,10 +484,6 @@ CARD_CSS = """
 .verb-forms { margin-top: 12px; border-collapse: collapse; width: 100%; font-size: 0.9em; }
 .verb-forms td { padding: 3px 8px; color: var(--text); }
 .vf-audio { color: var(--text-muted); }
-
-/* ── Front ──────────────────────────────────────────── */
-.front { text-align: center; }
-.front .headword { font-size: 100px; }
 
 hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
 """
