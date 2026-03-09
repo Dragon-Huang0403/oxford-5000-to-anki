@@ -508,6 +508,9 @@ FRONT_TMPL = """
 BACK_TMPL = """
 <div class="headword">{{Word}}</div>
 <span class="pos">{{PoS}}</span>
+<div class="phonetics">
+<span class="dialect">US</span> <span class="ipa">{{IPA US}}</span>
+</div>
 <hr>
 <div class="senses">{{Senses}}</div>
 """
@@ -533,7 +536,7 @@ OALD_MODEL = genanki.Model(
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def make_note(entry: dict) -> genanki.Note:
-    return genanki.Note(
+    note = genanki.Note(
         model=OALD_MODEL,
         fields=[
             entry["headword"],
@@ -546,6 +549,8 @@ def make_note(entry: dict) -> genanki.Note:
             build_senses_html(entry["groups"]),
         ],
     )
+    note.guid = genanki.guid_for(entry["headword"], entry["pos"])
+    return note
 
 
 def main():
