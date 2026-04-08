@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/audio/audio_provider.dart';
+import '../../../core/database/database_provider.dart';
 import '../providers/search_provider.dart';
+import '../../../features/settings/presentation/settings_screen.dart';
 import 'widgets/entry_card.dart';
 
 class DictionaryScreen extends ConsumerStatefulWidget {
@@ -44,17 +45,28 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
   }
 
   /// Auto-pronounce the first entry when search results arrive
-  void _autoPronounce(List<DictEntry> entries, String query) {
+  void _autoPronounce(List<DictEntry> entries, String query) async {
     if (entries.isEmpty) return;
     if (query == _lastAutoPronouncedQuery) return;
 
-    // Only auto-pronounce on exact match (not prefix search results)
+    // Only auto-pronounce on exact match
     final first = entries.first;
     if (first.headword.toLowerCase() != query.toLowerCase()) return;
 
     _lastAutoPronouncedQuery = query;
+
+    // Record in search history
+    final historyDao = ref.read(searchHistoryDaoProvider);
+    historyDao.addSearch(query, entryId: first.id, headword: first.headword);
+
+    // Check auto-pronounce setting
+    final settings = ref.read(settingsDaoProvider);
+    final autoPronounce = await settings.getAutoPronounce();
+    if (!autoPronounce) return;
+
+    final dialect = await settings.getDialect();
     final audio = ref.read(audioServiceProvider);
-    audio.playPronunciation(first.pronunciations, dialect: 'us');
+    audio.playPronunciation(first.pronunciations, dialect: dialect);
   }
 
   @override
@@ -65,57 +77,35 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     // Auto-pronounce when results arrive
     results.whenData((entries) => _autoPronounce(entries, query));
 
-    return CallbackShortcuts(
-      bindings: {
-        // Cmd+K to focus search (Spotlight-style)
-        const SingleActivator(LogicalKeyboardKey.keyK, meta: true): () {
-          _focusNode.requestFocus();
-          _controller.selection = TextSelection(
-            baseOffset: 0,
-            extentOffset: _controller.text.length,
-          );
-        },
-        // Escape to clear search
-        const SingleActivator(LogicalKeyboardKey.escape): () {
-          if (_controller.text.isNotEmpty) {
-            _controller.clear();
-            ref.read(searchQueryProvider.notifier).set('');
-          }
-        },
-      },
-      child: Focus(
-        autofocus: true,
-        child: Scaffold(
-          body: SafeArea(
-            child: Column(
-              children: [
-                _buildSearchBar(context),
-                Expanded(
-                  child: query.isEmpty
-                      ? _buildWelcome()
-                      : results.when(
-                          data: (entries) => entries.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    'No results for "$query"',
-                                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  itemCount: entries.length,
-                                  itemBuilder: (context, index) => EntryCard(
-                                    entry: entries[index],
-                                    onWordTap: _searchWord,
-                                  ),
-                                ),
-                          loading: () => const Center(child: CircularProgressIndicator()),
-                          error: (e, _) => Center(child: Text('Error: $e')),
-                        ),
-                ),
-              ],
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildSearchBar(context),
+            Expanded(
+              child: query.isEmpty
+                  ? _buildWelcome()
+                  : results.when(
+                      data: (entries) => entries.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No results for "$query"',
+                                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: entries.length,
+                              itemBuilder: (context, index) => EntryCard(
+                                entry: entries[index],
+                                onWordTap: _searchWord,
+                              ),
+                            ),
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Center(child: Text('Error: $e')),
+                    ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -123,14 +113,16 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
 
   Widget _buildSearchBar(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: TextField(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          Expanded(child: TextField(
         controller: _controller,
         focusNode: _focusNode,
         onChanged: _onSearchChanged,
         autofocus: true,
         decoration: InputDecoration(
-          hintText: 'Search for a word...  (⌘K)',
+          hintText: 'Search for a word...',
           prefixIcon: const Icon(Icons.search),
           suffixIcon: _controller.text.isNotEmpty
               ? IconButton(
@@ -144,6 +136,16 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           filled: true,
         ),
+      )),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -167,13 +169,6 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
             'Type a word to look it up',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '⌘K to focus search',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
           ),
         ],

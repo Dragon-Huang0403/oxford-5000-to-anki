@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Flask web app for browsing the OALD10 dictionary.
+Flask API server for the OALD10 dictionary app.
+
+Serves dictionary data, audio files, and batch audio manifests.
 
 Usage:
     python app.py                  # start on port 8000
@@ -22,6 +24,13 @@ def get_db():
     return connect(DB_PATH)
 
 
+@app.after_request
+def add_cors(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET'
+    return response
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -34,11 +43,7 @@ def api_search():
         return jsonify([])
 
     db = get_db()
-
-    # Try exact/fuzzy lookup first
     entries = fuzzy_lookup(db, q)
-
-    # If no exact match, try FTS prefix search
     if not entries:
         entries = search(db, f"{q}*", limit=20)
 
@@ -140,7 +145,134 @@ def api_audio(filename):
     db.close()
     if data is None:
         return Response("Not found", status=404)
-    return Response(data, mimetype="audio/mpeg")
+    return Response(data, mimetype="audio/mpeg",
+                    headers={"Cache-Control": "public, max-age=31536000"})
+
+
+@app.route("/api/audio-manifest/<word_set>")
+def api_audio_manifest(word_set):
+    """Return list of audio filenames for a word set.
+
+    word_set: 'all', 'ox3000', 'ox5000'
+    query params: type=word|sentence|both (default: both)
+    """
+    audio_type = request.args.get("type", "both")
+    db = get_db()
+
+    # Build entry filter
+    if word_set == "ox3000":
+        condition = "WHERE ox3000 = 1"
+    elif word_set == "ox5000":
+        condition = "WHERE ox5000 = 1 OR ox3000 = 1"
+    elif word_set == "all":
+        condition = ""
+    else:
+        db.close()
+        return jsonify({"error": f"Unknown word set: {word_set}"}), 400
+
+    raw = db  # already a sqlite3.Connection
+
+    # Collect audio filenames
+    files = set()
+
+    if audio_type in ("word", "both"):
+        # Word pronunciations
+        rows = raw.execute(f"""
+            SELECT DISTINCT p.audio_file FROM pronunciations p
+            JOIN entries e ON p.entry_id = e.id
+            {condition} AND p.audio_file != ''
+        """).fetchall()
+        files.update(r[0] for r in rows)
+
+        # Verb form audio
+        rows = raw.execute(f"""
+            SELECT DISTINCT vf.audio_gb, vf.audio_us FROM verb_forms vf
+            JOIN entries e ON vf.entry_id = e.id
+            {condition}
+        """).fetchall()
+        for r in rows:
+            if r[0]: files.add(r[0])
+            if r[1]: files.add(r[1])
+
+    if audio_type in ("sentence", "both"):
+        # Example audio
+        rows = raw.execute(f"""
+            SELECT DISTINCT ex.audio_gb, ex.audio_us FROM examples ex
+            JOIN senses s ON ex.sense_id = s.id
+            JOIN entries e ON s.entry_id = e.id
+            {condition}
+        """).fetchall()
+        for r in rows:
+            if r[0]: files.add(r[0])
+            if r[1]: files.add(r[1])
+
+    # Get sizes
+    manifest = []
+    for filename in sorted(files):
+        row = raw.execute(
+            "SELECT LENGTH(data) FROM audio_files WHERE filename = ?",
+            (filename,),
+        ).fetchone()
+        if row:
+            manifest.append({"filename": filename, "size": row[0]})
+
+    total_size = sum(f["size"] for f in manifest)
+    db.close()
+
+    return jsonify({
+        "word_set": word_set,
+        "audio_type": audio_type,
+        "file_count": len(manifest),
+        "total_size_bytes": total_size,
+        "total_size_mb": round(total_size / (1024 * 1024), 1),
+        "files": manifest,
+    })
+
+
+@app.route("/api/audio-batch")
+def api_audio_batch():
+    """Stream audio files as a tar archive.
+
+    Query params:
+      offset: start index (default 0)
+      limit: number of files (default 5000)
+
+    Client calls this in chunks to download all audio progressively.
+    """
+    import io
+    import tarfile
+
+    offset = int(request.args.get("offset", 0))
+    limit = int(request.args.get("limit", 5000))
+
+    db = get_db()
+    rows = db.execute(
+        "SELECT filename, data FROM audio_files ORDER BY filename LIMIT ? OFFSET ?",
+        (limit, offset),
+    ).fetchall()
+    total = db.execute("SELECT COUNT(*) FROM audio_files").fetchone()[0]
+    db.close()
+
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode='w') as tar:
+        for row in rows:
+            filename = row['filename']
+            data = row['data']
+            info = tarfile.TarInfo(name=filename)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+
+    buf.seek(0)
+    return Response(
+        buf.getvalue(),
+        mimetype="application/x-tar",
+        headers={
+            "X-Total-Files": str(total),
+            "X-Offset": str(offset),
+            "X-Limit": str(limit),
+            "X-Batch-Count": str(len(rows)),
+        },
+    )
 
 
 if __name__ == "__main__":
@@ -148,4 +280,4 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
-    app.run(port=args.port, debug=args.debug)
+    app.run(host="0.0.0.0", port=args.port, debug=args.debug)

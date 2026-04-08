@@ -28,6 +28,9 @@ dependencies:
   # FSRS spaced repetition
   fsrs: any
 
+  # HTTP
+  http: any
+
   # Utilities
   uuid: any
   connectivity_plus: any

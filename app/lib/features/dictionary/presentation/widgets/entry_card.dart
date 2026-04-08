@@ -29,7 +29,7 @@ class EntryCard extends ConsumerWidget {
             // Cross-references
             if (entry.xrefs.isNotEmpty) _buildXrefs(context),
             // Senses
-            ...entry.groups.map((g) => _buildSenseGroup(context, g)),
+            ...entry.groups.map((g) => _buildSenseGroup(context, g, ref)),
             // Synonyms
             if (entry.synonyms.isNotEmpty) _buildCollapsible(context, 'Synonyms', _buildSynonyms(context)),
             // Collocations
@@ -87,6 +87,9 @@ class EntryCard extends ConsumerWidget {
     );
   }
 
+  static const _usColor = Color(0xFF1565C0); // blue
+  static const _gbColor = Color(0xFFD84315); // deep orange
+
   Widget _buildPhonetics(BuildContext context, WidgetRef ref) {
     final gb = entry.pronunciations.where((p) => p['dialect'] == 'gb').firstOrNull;
     final us = entry.pronunciations.where((p) => p['dialect'] == 'us').firstOrNull;
@@ -95,29 +98,37 @@ class EntryCard extends ConsumerWidget {
       child: Wrap(
         spacing: 16,
         children: [
-          if (gb != null) _phonGroup(ref, 'GB', gb['ipa'] as String? ?? '', gb['audio_file'] as String? ?? ''),
-          if (us != null) _phonGroup(ref, 'US', us['ipa'] as String? ?? '', us['audio_file'] as String? ?? ''),
+          if (us != null) _phonGroup(ref, 'US', us['ipa'] as String? ?? '', us['audio_file'] as String? ?? '', _usColor),
+          if (gb != null) _phonGroup(ref, 'GB', gb['ipa'] as String? ?? '', gb['audio_file'] as String? ?? '', _gbColor),
         ],
       ),
     );
   }
 
-  Widget _phonGroup(WidgetRef ref, String label, String ipa, String audioFile) {
+  Widget _phonGroup(WidgetRef ref, String label, String ipa, String audioFile, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
-        const SizedBox(width: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+        ),
+        const SizedBox(width: 6),
         Text(ipa, style: const TextStyle(fontFamily: 'monospace', fontSize: 14)),
         if (audioFile.isNotEmpty) ...[
           const SizedBox(width: 4),
-          _audioButton(ref, audioFile),
+          _audioButton(ref, audioFile, color: color),
         ],
       ],
     );
   }
 
-  Widget _audioButton(WidgetRef ref, String filename, {double size = 28}) {
+  Widget _audioButton(WidgetRef ref, String filename, {double size = 28, Color? color}) {
+    final c = color ?? _usColor;
     return SizedBox(
       width: size,
       height: size,
@@ -125,16 +136,16 @@ class EntryCard extends ConsumerWidget {
         padding: EdgeInsets.zero,
         iconSize: size * 0.55,
         style: IconButton.styleFrom(
-          backgroundColor: Colors.blue,
+          backgroundColor: c,
           foregroundColor: Colors.white,
         ),
-        icon: const Icon(Icons.play_arrow),
+        icon: const Icon(Icons.volume_up),
         onPressed: () => ref.read(audioServiceProvider).play(filename),
       ),
     );
   }
 
-  Widget _buildSenseGroup(BuildContext context, SenseGroupWithSenses group) {
+  Widget _buildSenseGroup(BuildContext context, SenseGroupWithSenses group, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -155,13 +166,13 @@ class EntryCard extends ConsumerWidget {
               ),
             ),
           ),
-        ...group.senses.map((s) => _buildSense(context, s)),
+        ...group.senses.map((s) => _buildSense(context, s, ref)),
         if (group.xrefs.isNotEmpty) _buildXrefInline(context, group.xrefs),
       ],
     );
   }
 
-  Widget _buildSense(BuildContext context, SenseWithExamples senseData) {
+  Widget _buildSense(BuildContext context, SenseWithExamples senseData, WidgetRef ref) {
     final s = senseData.sense;
     final num = s['sense_num'];
     final cefr = s['cefr_level'] as String? ?? '';
@@ -196,7 +207,7 @@ class EntryCard extends ConsumerWidget {
               padding: const EdgeInsets.only(left: 16, top: 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: senseData.examples.map((ex) => _buildExample(context, ex)).toList(),
+                children: senseData.examples.map((ex) => _buildExample(context, ex, ref: ref)).toList(),
               ),
             ),
           // Sense-level xrefs
@@ -206,9 +217,13 @@ class EntryCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildExample(BuildContext context, Map<String, dynamic> ex) {
+  Widget _buildExample(BuildContext context, Map<String, dynamic> ex, {WidgetRef? ref}) {
     final text = ex['text_plain'] as String? ?? '';
     final textZh = ex['text_zh'] as String? ?? '';
+    final audioGb = ex['audio_gb'] as String? ?? '';
+    final audioUs = ex['audio_us'] as String? ?? '';
+    final hasAudio = audioGb.isNotEmpty || audioUs.isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -222,7 +237,22 @@ class EntryCard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(text, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(text, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14)),
+                    ),
+                    if (hasAudio && ref != null) ...[
+                      const SizedBox(width: 4),
+                      if (audioUs.isNotEmpty) _audioButton(ref, audioUs, size: 22, color: _usColor),
+                      if (audioGb.isNotEmpty) ...[
+                        const SizedBox(width: 2),
+                        _audioButton(ref, audioGb, size: 22, color: _gbColor),
+                      ],
+                    ],
+                  ],
+                ),
                 if (textZh.isNotEmpty)
                   Text(textZh, style: const TextStyle(fontSize: 12, color: Colors.grey)),
               ],
