@@ -144,14 +144,13 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final key = _entryKeys[index];
-      debugPrint('scrollToEntry($index): key=${key != null}, context=${key?.currentContext != null}, totalKeys=${_entryKeys.length}');
       if (key?.currentContext != null) {
         Scrollable.ensureVisible(
           key!.currentContext!,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
           alignment: 0.0,
-        ).then((_) => debugPrint('scrollToEntry($index): done'));
+        );
       }
     });
   }
