@@ -68,12 +68,35 @@ class SenseWithExamples {
 Future<DictEntry> loadFullEntry(DictionaryDatabase db, Map<String, dynamic> entry) async {
   final entryId = entry['id'] as int;
 
-  final pronunciations = await db.getPronunciations(entryId);
-  final verbForms = await db.getVerbForms(entryId);
-  final senseGroupRows = await db.getSenseGroups(entryId);
+  // Fetch all entry-level data in parallel (12 queries -> 1 round-trip)
+  final results = await Future.wait([
+    db.getPronunciations(entryId),       // [0]
+    db.getVerbForms(entryId),            // [1]
+    db.getSenseGroups(entryId),          // [2]
+    db.getXrefs(entryId),               // [3]
+    db.getAllSensesForEntry(entryId),    // [4]
+    db.getAllExamplesForEntry(entryId),  // [5]
+    db.getSynonyms(entryId),            // [6]
+    db.getWordFamily(entryId),          // [7]
+    db.getCollocations(entryId),        // [8]
+    db.getPhrasalVerbs(entryId),        // [9]
+    db.getExtraExamples(entryId),       // [10]
+  ]);
+  final wordOrigin = await db.getWordOrigin(entryId);
 
-  // Load all xrefs at once, partition by level
-  final allXrefRows = await db.getXrefs(entryId);
+  final pronunciations = results[0];
+  final verbForms = results[1];
+  final senseGroupRows = results[2];
+  final allXrefRows = results[3];
+  final allSenses = results[4];
+  final allExamples = results[5];
+  final synonyms = results[6];
+  final wordFamily = results[7];
+  final collocations = results[8];
+  final phrasalVerbs = results[9];
+  final extraExamples = results[10];
+
+  // Partition xrefs by level
   final senseXrefs = <int, List<XrefInfo>>{};
   final groupXrefs = <int, List<XrefInfo>>{};
   final entryXrefs = <XrefInfo>[];
@@ -94,33 +117,39 @@ Future<DictEntry> loadFullEntry(DictionaryDatabase db, Map<String, dynamic> entr
     }
   }
 
+  // Group examples by sense_id
+  final examplesBySense = <int, List<Map<String, dynamic>>>{};
+  for (final ex in allExamples) {
+    final sId = ex['sense_id'] as int;
+    examplesBySense.putIfAbsent(sId, () => []).add(ex);
+  }
+
+  // Group senses by sense_group_id
+  final sensesByGroup = <int, List<Map<String, dynamic>>>{};
+  for (final s in allSenses) {
+    final sgId = s['sense_group_id'] as int;
+    sensesByGroup.putIfAbsent(sgId, () => []).add(s);
+  }
+
+  // Assemble sense group hierarchy
   final groups = <SenseGroupWithSenses>[];
   for (final sg in senseGroupRows) {
     final sgId = sg['id'] as int;
-    final senseRows = await db.getSenses(sgId);
-    final senses = <SenseWithExamples>[];
-    for (final s in senseRows) {
+    final senseRows = sensesByGroup[sgId] ?? [];
+    final senses = senseRows.map((s) {
       final sId = s['id'] as int;
-      final examples = await db.getExamples(sId);
-      senses.add(SenseWithExamples(
+      return SenseWithExamples(
         sense: s,
-        examples: examples,
+        examples: examplesBySense[sId] ?? [],
         xrefs: senseXrefs[sId] ?? [],
-      ));
-    }
+      );
+    }).toList();
     groups.add(SenseGroupWithSenses(
       group: sg,
       senses: senses,
       xrefs: groupXrefs[sgId] ?? [],
     ));
   }
-
-  final synonyms = await db.getSynonyms(entryId);
-  final wordOrigin = await db.getWordOrigin(entryId);
-  final wordFamily = await db.getWordFamily(entryId);
-  final collocations = await db.getCollocations(entryId);
-  final phrasalVerbs = await db.getPhrasalVerbs(entryId);
-  final extraExamples = await db.getExtraExamples(entryId);
 
   return DictEntry(
     entry: entry,
@@ -185,12 +214,8 @@ final searchResultsProvider = FutureProvider<List<DictEntry>>((ref) async {
     rows = await db.fuzzySearch(query, limit: 10, maxDistance: 2);
   }
 
-  // Load full entry data
-  final entries = <DictEntry>[];
-  for (final row in rows) {
-    entries.add(await loadFullEntry(db, row));
-  }
-  return entries;
+  // Load full entry data in parallel
+  return Future.wait(rows.map((row) => loadFullEntry(db, row)));
 });
 
 /// Autocomplete suggestions (lightweight - just headwords, no full load)

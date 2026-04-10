@@ -7,10 +7,15 @@ import '../../../core/database/database_provider.dart';
 /// Settings loaded as a future
 final _settingsProvider = FutureProvider<_AppSettings>((ref) async {
   final dao = ref.read(settingsDaoProvider);
+  final results = await Future.wait([
+    dao.getDialect(),
+    dao.getAutoPronounce(),
+    dao.getThemeMode(),
+  ]);
   return _AppSettings(
-    dialect: await dao.getDialect(),
-    autoPronounce: await dao.getAutoPronounce(),
-    themeMode: await dao.getThemeMode(),
+    dialect: results[0] as String,
+    autoPronounce: results[1] as bool,
+    themeMode: results[2] as String,
   );
 });
 

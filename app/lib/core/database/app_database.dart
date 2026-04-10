@@ -28,6 +28,9 @@ class UserDatabase extends _$UserDatabase {
 
   @override
   int get schemaVersion => 1;
+
+  /// Force DB open + migration so first real query is instant.
+  Future<void> warmUp() => customSelect('SELECT 1').getSingle();
 }
 
 // ── Dictionary database (read-only, opened from pre-built file) ──────────────
@@ -47,7 +50,7 @@ class DictionaryDatabase {
       await File(dbPath).writeAsBytes(bytes.buffer.asUint8List());
     }
 
-    final db = Database(NativeDatabase(File(dbPath)));
+    final db = Database(NativeDatabase.createInBackground(File(dbPath)));
     // Make read-only
     await db.customStatement('PRAGMA query_only = ON');
     return DictionaryDatabase._(db);
@@ -255,6 +258,27 @@ class DictionaryDatabase {
     final results = await _db.customSelect(
       'SELECT * FROM examples WHERE sense_id = ? ORDER BY sort_order',
       variables: [Variable.withInt(senseId)],
+    ).get();
+    return results.map((r) => r.data).toList();
+  }
+
+  /// Batch: all senses for an entry (avoids per-group queries)
+  Future<List<Map<String, dynamic>>> getAllSensesForEntry(int entryId) async {
+    final results = await _db.customSelect(
+      'SELECT * FROM senses WHERE entry_id = ? ORDER BY sense_group_id, sort_order',
+      variables: [Variable.withInt(entryId)],
+    ).get();
+    return results.map((r) => r.data).toList();
+  }
+
+  /// Batch: all examples for an entry via JOIN (avoids per-sense queries)
+  Future<List<Map<String, dynamic>>> getAllExamplesForEntry(int entryId) async {
+    final results = await _db.customSelect(
+      '''SELECT ex.* FROM examples ex
+         JOIN senses s ON ex.sense_id = s.id
+         WHERE s.entry_id = ?
+         ORDER BY ex.sense_id, ex.sort_order''',
+      variables: [Variable.withInt(entryId)],
     ).get();
     return results.map((r) => r.data).toList();
   }

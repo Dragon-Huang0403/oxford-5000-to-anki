@@ -99,6 +99,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     final current = ref.read(searchQueryProvider);
     if (current.isNotEmpty && current.toLowerCase() != word.toLowerCase()) {
       _history.add(current);
+      if (_history.length > 50) _history.removeAt(0);
     }
     _lastAutoPronouncedQuery = null;
     _controller.text = word;
@@ -161,7 +162,9 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     final query = ref.watch(searchQueryProvider);
     final suggestions = ref.watch(autocompleteSuggestionsProvider);
 
-    results.whenData((entries) => _autoPronounce(entries, query));
+    ref.listen(searchResultsProvider, (prev, next) {
+      next.whenData((entries) => _autoPronounce(entries, ref.read(searchQueryProvider)));
+    });
 
     return Shortcuts(
       shortcuts: {

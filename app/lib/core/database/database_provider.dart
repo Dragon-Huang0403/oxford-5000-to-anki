@@ -11,8 +11,10 @@ final dictionaryDbProvider = Provider<DictionaryDatabase>((ref) {
 });
 
 /// Global provider for the read-write user database.
+late final UserDatabase globalUserDb;
+
 final userDbProvider = Provider<UserDatabase>((ref) {
-  return UserDatabase();
+  return globalUserDb;
 });
 
 /// Search history DAO
@@ -27,5 +29,9 @@ final settingsDaoProvider = Provider<SettingsDao>((ref) {
 
 /// Initialize databases. Call before runApp.
 Future<void> initDatabases() async {
-  globalDictDb = await DictionaryDatabase.open();
+  globalUserDb = UserDatabase();
+  await Future.wait([
+    DictionaryDatabase.open().then((db) => globalDictDb = db),
+    globalUserDb.warmUp(),
+  ]);
 }
