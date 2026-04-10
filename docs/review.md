@@ -95,6 +95,22 @@ scheduler.reviewCard(card, rating) → ({Card card, ReviewLog reviewLog})
 
 Card states: `learning(1)`, `review(2)`, `relearning(3)` — no `new(0)` state.
 
-## Local-Only
+## Cross-Device Sync
 
-All data stored in local SQLite via Drift. No network calls required. Supabase sync is a future follow-up.
+Review progress syncs to Supabase so it works across devices.
+
+### What syncs
+- **review_cards** — mutable card state (due date, stability, difficulty, reps, etc.)
+- **review_logs** — append-only audit trail of each review action
+
+### Sync strategy
+- **Push**: fire-and-forget after each review (`pushLatestReviewCard` / `pushLatestReviewLog`)
+- **Pull**: on app resume, `syncReviewData()` pushes all unsynced rows then pulls remote changes
+- **Conflict resolution**: ReviewCards use last-write-wins by `updated_at`; ReviewLogs deduplicate by UUID (append-only, no conflicts)
+- **Offline-first**: local `synced` column (0/1) tracks push state; unsynced rows retry on next sync cycle
+
+### Supabase tables
+- `review_cards` — mirrors local schema + `user_id`, RLS enforced
+- `review_logs` — mirrors local schema + `user_id`, RLS enforced
+
+Migration: `supabase/migrations/20260410160000_create_review_tables.sql`
