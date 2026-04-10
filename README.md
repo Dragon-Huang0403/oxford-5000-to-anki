@@ -33,6 +33,10 @@ python anki/create_deck.py --5000
 # Export and upload to Cloudflare R2
 python scripts/export_for_r2.py
 ./scripts/upload_to_r2.sh
+
+# Flutter app (see app/README.md)
+cp oald10.db app/assets/oald10.db
+cd app && flutter run
 ```
 
 ## Project Structure
@@ -56,6 +60,7 @@ python scripts/export_for_r2.py
 ├── scripts/
 │   ├── export_for_r2.py    # Export HTML + audio filelist for R2
 │   └── upload_to_r2.sh     # Upload to Cloudflare R2 via rclone
+├── app/                    # Flutter dictionary app (see app/README.md)
 ├── docs/
 │   ├── database.md         # Schema, data source, build pipeline
 │   ├── r2-export.md        # Cloudflare R2 export guide

@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
@@ -5,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
+import '../config.dart';
 
 /// Local SQLite database for cached audio BLOBs.
 /// Same schema as the server's audio_files table.
@@ -21,6 +24,11 @@ class AudioDb {
       CREATE TABLE IF NOT EXISTS audio_files (
         filename TEXT PRIMARY KEY,
         data BLOB NOT NULL
+      )
+    ''');
+    await _db.customStatement('''
+      CREATE TABLE IF NOT EXISTS completed_packs (
+        name TEXT PRIMARY KEY
       )
     ''');
     _initialized = true;
@@ -44,6 +52,20 @@ class AudioDb {
     );
   }
 
+  /// Insert multiple files in a single transaction.
+  Future<void> putBatch(List<(String, Uint8List)> files) async {
+    if (files.isEmpty) return;
+    await init();
+    await _db.transaction(() async {
+      for (final (filename, data) in files) {
+        await _db.customInsert(
+          'INSERT OR REPLACE INTO audio_files (filename, data) VALUES (?, ?)',
+          variables: [Variable.withString(filename), Variable.withBlob(data)],
+        );
+      }
+    });
+  }
+
   Future<({int fileCount, int sizeBytes})> stats() async {
     await init();
     final countRow = await _db.customSelect('SELECT COUNT(*) as c FROM audio_files').getSingle();
@@ -54,9 +76,32 @@ class AudioDb {
     );
   }
 
+  Future<Set<String>> getCachedFilenames() async {
+    await init();
+    final rows =
+        await _db.customSelect('SELECT filename FROM audio_files').get();
+    return rows.map((r) => r.data['filename'] as String).toSet();
+  }
+
+  Future<Set<String>> getCompletedPacks() async {
+    await init();
+    final rows =
+        await _db.customSelect('SELECT name FROM completed_packs').get();
+    return rows.map((r) => r.data['name'] as String).toSet();
+  }
+
+  Future<void> markPackComplete(String name) async {
+    await init();
+    await _db.customInsert(
+      'INSERT OR IGNORE INTO completed_packs (name) VALUES (?)',
+      variables: [Variable.withString(name)],
+    );
+  }
+
   Future<void> clear() async {
     await init();
     await _db.customStatement('DELETE FROM audio_files');
+    await _db.customStatement('DELETE FROM completed_packs');
     await _db.customStatement('VACUUM');
   }
 
@@ -75,12 +120,12 @@ class _RawDb extends GeneratedDatabase {
   MigrationStrategy get migration => MigrationStrategy(onCreate: (m) async {});
 }
 
-/// Audio service: plays from local audio.db, fetches from API on cache miss.
+/// Audio service: plays from local audio.db, fetches from R2 on cache miss.
 class AudioService {
   final AudioPlayer _player = AudioPlayer();
   final AudioDb audioDB = AudioDb();
 
-  String apiBaseUrl = 'http://localhost:8000/api';
+  static const _r2AudioUrl = '$r2BaseUrl/audio';
 
   AudioService();
 
@@ -93,8 +138,8 @@ class AudioService {
       var data = await audioDB.get(filename);
 
       if (data == null) {
-        // Fetch from API, store in audio.db
-        final response = await http.get(Uri.parse('$apiBaseUrl/audio/$filename'));
+        // Fetch from R2, store in audio.db
+        final response = await http.get(Uri.parse('$_r2AudioUrl/$filename'));
         if (response.statusCode == 200) {
           data = response.bodyBytes;
           await audioDB.put(filename, data);
@@ -127,72 +172,110 @@ class AudioService {
     if (audioFile.isNotEmpty) await play(audioFile);
   }
 
-  /// Download ALL audio via batch tar endpoint, storing each file in audio.db.
+  /// Download all audio via pre-built tar packs from R2.
+  /// Fetches manifest, skips completed packs, downloads remaining in parallel,
+  /// extracts tar contents into audio.db.
   Future<void> downloadAll({
-    required void Function(int downloaded, int total, int bytesDownloaded) onProgress,
+    required void Function(int completedPacks, int totalPacks,
+            int filesExtracted, int bytesDownloaded)
+        onProgress,
   }) async {
-    const batchSize = 5000;
-    var offset = 0;
-    var totalFiles = 0;
-    var downloadedSoFar = 0;
-    var bytesTotal = 0;
+    const packsUrl = '$r2BaseUrl/audio-packs';
+    final client = http.Client();
 
-    while (true) {
-      final url = '$apiBaseUrl/audio-batch?offset=$offset&limit=$batchSize';
-      debugPrint('AudioService: batch offset=$offset');
+    try {
+      // Fetch manifest
+      final manifestRes =
+          await client.get(Uri.parse('$packsUrl/manifest.json'));
+      if (manifestRes.statusCode != 200) {
+        throw Exception(
+            'Failed to fetch manifest: ${manifestRes.statusCode}');
+      }
+      final manifest =
+          (jsonDecode(manifestRes.body) as List).cast<Map<String, dynamic>>();
 
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode != 200) {
-        throw Exception('Batch download failed: ${response.statusCode}');
+      final completed = await audioDB.getCompletedPacks();
+      final remaining =
+          manifest.where((p) => !completed.contains(p['name'])).toList();
+
+      if (remaining.isEmpty) {
+        onProgress(manifest.length, manifest.length, 0, 0);
+        return;
       }
 
-      // http package lowercases header names
-      totalFiles = int.parse(response.headers['x-total-files'] ?? response.headers['X-Total-Files'] ?? '0');
-      final batchCount = int.parse(response.headers['x-batch-count'] ?? response.headers['X-Batch-Count'] ?? '0');
-      if (batchCount == 0) break;
+      var packsCompleted = completed.length;
+      var filesExtracted = 0;
+      var bytesDownloaded = 0;
+      const concurrency = 3;
 
-      // Parse tar and store each file in audio.db
-      final extracted = await _extractTarToDb(response.bodyBytes);
-      downloadedSoFar += extracted;
-      bytesTotal += response.bodyBytes.length;
+      for (var i = 0; i < remaining.length; i += concurrency) {
+        final end = (i + concurrency).clamp(0, remaining.length);
+        final batch = remaining.sublist(i, end);
 
-      onProgress(downloadedSoFar, totalFiles, bytesTotal);
+        final futures = batch.map((pack) async {
+          final packName = pack['name'] as String;
+          final res =
+              await client.get(Uri.parse('$packsUrl/$packName'));
+          if (res.statusCode != 200) {
+            debugPrint('AudioService: pack $packName failed ${res.statusCode}');
+            return (0, 0);
+          }
+          final extracted = await _extractTar(res.bodyBytes);
+          await audioDB.markPackComplete(packName);
+          return (extracted, res.bodyBytes.length);
+        });
 
-      offset += batchSize;
-      if (batchCount < batchSize) break;
+        final results = await Future.wait(futures);
+        for (final (files, bytes) in results) {
+          if (files > 0) packsCompleted++;
+          filesExtracted += files;
+          bytesDownloaded += bytes;
+        }
+        onProgress(
+            packsCompleted, manifest.length, filesExtracted, bytesDownloaded);
+      }
+    } finally {
+      client.close();
     }
   }
 
-  /// Parse tar archive and insert each file into audio.db.
-  Future<int> _extractTarToDb(Uint8List tarBytes) async {
-    var count = 0;
+  /// Parse tar archive and insert all files into audio.db in a single transaction.
+  Future<int> _extractTar(Uint8List tarBytes) async {
+    final files = <(String, Uint8List)>[];
     var pos = 0;
 
     while (pos + 512 <= tarBytes.length) {
       final header = tarBytes.sublist(pos, pos + 512);
       if (header.every((b) => b == 0)) break;
 
+      // Filename: first 100 bytes, null-terminated
       final nameBytes = header.sublist(0, 100);
       var nameEnd = nameBytes.indexOf(0);
       if (nameEnd == -1) nameEnd = 100;
-      final filename = String.fromCharCodes(nameBytes.sublist(0, nameEnd)).trim();
+      final filename =
+          String.fromCharCodes(nameBytes.sublist(0, nameEnd)).trim();
 
-      final rawSizeBytes = header.sublist(124, 136);
-      final sizeStr = String.fromCharCodes(rawSizeBytes).replaceAll(RegExp(r'[\x00 ]'), '');
-      final fileSize = sizeStr.isNotEmpty ? int.tryParse(sizeStr, radix: 8) ?? 0 : 0;
+      // File size: bytes 124-136, octal
+      final sizeStr = String.fromCharCodes(header.sublist(124, 136))
+          .replaceAll(RegExp(r'[\x00 ]'), '');
+      final fileSize =
+          sizeStr.isNotEmpty ? int.tryParse(sizeStr, radix: 8) ?? 0 : 0;
 
       pos += 512;
 
-      if (filename.isNotEmpty && fileSize > 0 && pos + fileSize <= tarBytes.length) {
-        final data = Uint8List.sublistView(tarBytes, pos, pos + fileSize);
-        await audioDB.put(filename, data);
-        count++;
+      if (filename.isNotEmpty &&
+          fileSize > 0 &&
+          pos + fileSize <= tarBytes.length) {
+        files.add(
+            (filename, Uint8List.sublistView(tarBytes, pos, pos + fileSize)));
       }
 
+      // Advance to next 512-byte boundary
       pos += (fileSize + 511) & ~511;
     }
 
-    return count;
+    await audioDB.putBatch(files);
+    return files.length;
   }
 
   /// Cache stats from audio.db.

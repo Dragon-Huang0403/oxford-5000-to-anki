@@ -397,8 +397,8 @@ def _parse_pos_block(block: str, fallback_headword: str) -> EntryData | None:
     )
     phon_section = block[:sense_start]
     all_audio = re.findall(r'new Audio\("([^"]+)"\)', phon_section)
-    audio_gb = next((a for a in all_audio if re.match(r"[^_].*__gb_", a)), "")
-    audio_us = next((a for a in all_audio if re.match(r"[^_].*__us_", a)), "")
+    audio_gb = next((a for a in all_audio if re.match(r"[^_].*_gb_", a)), "")
+    audio_us = next((a for a in all_audio if re.match(r"[^_].*_us_", a)), "")
 
     groups = []
     # Track xrefs found at sense/group level to deduplicate entry-level

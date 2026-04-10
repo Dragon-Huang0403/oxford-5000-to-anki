@@ -1,4 +1,4 @@
-import 'dart:io' show File, GZipCodec;
+import 'dart:io' show File;
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:drift_flutter/drift_flutter.dart';
@@ -41,11 +41,10 @@ class DictionaryDatabase {
     final dir = await getApplicationDocumentsDirectory();
     final dbPath = '${dir.path}/dictionary.db';
 
-    // Decompress from assets on first launch
+    // Copy from bundled asset on first launch
     if (!File(dbPath).existsSync()) {
-      final compressed = await rootBundle.load('assets/dictionary.db.gz');
-      final decompressed = GZipCodec().decode(compressed.buffer.asUint8List());
-      await File(dbPath).writeAsBytes(decompressed);
+      final bytes = await rootBundle.load('assets/oald10.db');
+      await File(dbPath).writeAsBytes(bytes.buffer.asUint8List());
     }
 
     final db = Database(NativeDatabase(File(dbPath)));
@@ -353,6 +352,22 @@ class DictionaryDatabase {
       variables: vars,
     ).getSingle();
     return result.data['cnt'] as int;
+  }
+
+  /// All unique audio filenames across pronunciations, verb_forms, examples.
+  Future<List<String>> getAllAudioFilenames() async {
+    final rows = await _db.customSelect('''
+      SELECT DISTINCT audio_file AS f FROM pronunciations WHERE audio_file != ''
+      UNION
+      SELECT DISTINCT audio_gb FROM verb_forms WHERE audio_gb != ''
+      UNION
+      SELECT DISTINCT audio_us FROM verb_forms WHERE audio_us != ''
+      UNION
+      SELECT DISTINCT audio_gb FROM examples WHERE audio_gb != ''
+      UNION
+      SELECT DISTINCT audio_us FROM examples WHERE audio_us != ''
+    ''').get();
+    return rows.map((r) => r.data['f'] as String).toList();
   }
 
   Future<void> close() async {

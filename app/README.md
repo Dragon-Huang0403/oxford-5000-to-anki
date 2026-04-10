@@ -1,17 +1,26 @@
-# oxford_dictionary
+# Oxford Dictionary (Flutter)
 
-A new Flutter project.
+## Prerequisites
 
-## Getting Started
+Place `oald10.db` in `app/assets/` before building:
 
-This project is a starting point for a Flutter application.
+```bash
+# Option A: Copy from project root (after running build_db.py)
+cp oald10.db app/assets/oald10.db
 
-A few resources to get you started if this is your first Flutter project:
+# Option B: Download from R2
+curl -o app/assets/oald10.db \
+  https://r2.deckionary.com/db/oald10.db
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+The file is ~93 MB and not checked into git. CI pulls it from R2 automatically.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Audio files are streamed from R2 on demand and cached locally. Use Settings > "Download all audio" for full offline use (~1.7 GB).
+
+## Build & Run
+
+```bash
+cd app
+flutter pub get
+flutter run
+```

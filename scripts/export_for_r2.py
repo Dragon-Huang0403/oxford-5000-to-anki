@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Export raw HTML and audio filelist from Body.data for Cloudflare R2 upload."""
+"""Export raw HTML, audio filelist, and audio tar packs from Body.data for Cloudflare R2 upload."""
 
+import json
 import re
 import sys
+import tarfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -35,6 +37,9 @@ def _collect_audio(entry: EntryData) -> set[str]:
 
 EXPORT_DIR = Path("export")
 HTML_DIR = EXPORT_DIR / "html"
+PACKS_DIR = EXPORT_DIR / "audio-packs"
+AUDIO_SOURCE = Path("oxford.dictionary/Contents")
+PACK_SIZE = 4000  # files per tar archive
 
 
 def sanitize_filename(text: str) -> str:
@@ -99,6 +104,49 @@ def main():
         print(f"  Failed:      {len(failed)}", file=sys.stderr)
         for word, err in failed[:10]:
             print(f"    {word}: {err}", file=sys.stderr)
+
+    # Build audio tar packs
+    build_audio_packs(audio_list)
+
+
+def build_audio_packs(audio_list: list[str]):
+    """Bundle audio files into tar archives for fast bulk download."""
+    PACKS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Filter to files that actually exist on disk
+    existing = [f for f in audio_list if (AUDIO_SOURCE / f).is_file()]
+    skipped = len(audio_list) - len(existing)
+    if skipped:
+        print(f"  Skipped {skipped} missing audio files", file=sys.stderr)
+
+    num_packs = (len(existing) + PACK_SIZE - 1) // PACK_SIZE
+    print(f"\nBuilding {num_packs} audio packs ({len(existing)} files, {PACK_SIZE}/pack)...", file=sys.stderr)
+
+    manifest = []
+    for i in range(num_packs):
+        chunk = existing[i * PACK_SIZE : (i + 1) * PACK_SIZE]
+        pack_name = f"pack-{i:03d}.tar"
+        pack_path = PACKS_DIR / pack_name
+
+        with tarfile.open(pack_path, "w") as tar:
+            for filename in chunk:
+                tar.add(AUDIO_SOURCE / filename, arcname=filename)
+
+        manifest.append({
+            "name": pack_name,
+            "count": len(chunk),
+            "bytes": pack_path.stat().st_size,
+        })
+
+        if (i + 1) % 10 == 0 or i == num_packs - 1:
+            print(f"  {i + 1}/{num_packs} packs built", file=sys.stderr)
+
+    (PACKS_DIR / "manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+    )
+
+    total_bytes = sum(p["bytes"] for p in manifest)
+    print(f"  Total: {num_packs} packs, {total_bytes / 1024 / 1024:.0f} MB", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -174,7 +174,7 @@ class _AudioDownloadSection extends ConsumerWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${s.downloadedFiles} / ${s.totalFiles} files (${s.cacheSizeFormatted})',
+                  '${s.completedPacks} / ${s.totalPacks} packs (${s.cacheSizeFormatted})',
                   style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
                 ),
               ],
