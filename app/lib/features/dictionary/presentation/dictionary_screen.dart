@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
-import '../../../app.dart' show searchBarFocusTrigger;
+import '../../../app.dart' show searchBarFocusTrigger, clipboardSearchText;
 import '../../../core/audio/audio_provider.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
@@ -165,7 +165,13 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     final suggestions = ref.watch(autocompleteSuggestionsProvider);
 
     // Focus search bar when global hotkey fires
+    // Focus search bar when global hotkey fires, auto-fill clipboard word
     ref.listen(searchBarFocusTrigger, (prev, next) {
+      final clipText = ref.read(clipboardSearchText);
+      if (clipText != null) {
+        ref.read(clipboardSearchText.notifier).set(null);
+        _commitSearch(clipText);
+      }
       _focusSearchBar();
     });
 

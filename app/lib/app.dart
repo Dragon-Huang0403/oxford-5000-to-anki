@@ -7,6 +7,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'core/database/database_provider.dart';
 import 'core/sync/sync_provider.dart';
 import 'features/dictionary/presentation/dictionary_screen.dart';
@@ -44,6 +45,23 @@ final showTrayIconProvider = FutureProvider<bool>((ref) async {
   final dao = ref.read(settingsDaoProvider);
   return dao.getShowTrayIcon();
 });
+
+/// Clipboard text to auto-fill in search bar on hotkey trigger.
+final clipboardSearchText =
+    NotifierProvider<_ClipboardNotifier, String?>(_ClipboardNotifier.new);
+
+class _ClipboardNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? text) => state = text;
+}
+
+/// Check if clipboard text looks like a word/phrase worth searching.
+bool _looksLikeSearchQuery(String text) {
+  if (text.length > 50 || text.contains('\n')) return false;
+  // Must start with a letter, allow letters/digits/spaces/hyphens/apostrophes
+  return RegExp(r"^[a-zA-Z][a-zA-Z0-9 '\-]*$").hasMatch(text);
+}
 
 // ── HotKey serialization helpers ────────────────────────────────────────
 
@@ -164,10 +182,59 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
     if (isVisible) {
       await windowManager.hide();
     } else {
+      // Position window on the display where the mouse cursor is
+      await _moveToMouseDisplay();
       await windowManager.show();
       await windowManager.focus();
       setState(() => _currentTab = 0);
+
+      // Check clipboard for a word to auto-search
+      String? clipText;
+      try {
+        final data = await Clipboard.getData(Clipboard.kTextPlain);
+        final text = data?.text?.trim();
+        if (text != null && text.isNotEmpty && _looksLikeSearchQuery(text)) {
+          clipText = text;
+        }
+      } catch (_) {}
+      ref.read(clipboardSearchText.notifier).set(clipText);
       ref.read(searchBarFocusTrigger.notifier).increment();
+    }
+  }
+
+  Future<void> _moveToMouseDisplay() async {
+    try {
+      final cursorPos = await screenRetriever.getCursorScreenPoint();
+      final displays = await screenRetriever.getAllDisplays();
+
+      // Find which display contains the cursor
+      Display? targetDisplay;
+      for (final display in displays) {
+        final bounds = display.visiblePosition != null && display.visibleSize != null
+            ? Rect.fromLTWH(
+                display.visiblePosition!.dx,
+                display.visiblePosition!.dy,
+                display.visibleSize!.width,
+                display.visibleSize!.height,
+              )
+            : null;
+        if (bounds != null && bounds.contains(Offset(cursorPos.dx, cursorPos.dy))) {
+          targetDisplay = display;
+          break;
+        }
+      }
+
+      if (targetDisplay != null && targetDisplay.visiblePosition != null && targetDisplay.visibleSize != null) {
+        final windowSize = await windowManager.getSize();
+        // Center on the target display
+        final x = targetDisplay.visiblePosition!.dx +
+            (targetDisplay.visibleSize!.width - windowSize.width) / 2;
+        final y = targetDisplay.visiblePosition!.dy +
+            (targetDisplay.visibleSize!.height - windowSize.height) / 2;
+        await windowManager.setPosition(Offset(x, y));
+      }
+    } catch (e) {
+      debugPrint('Could not position window on mouse display: $e');
     }
   }
 
