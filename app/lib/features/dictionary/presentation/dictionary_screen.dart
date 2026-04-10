@@ -421,7 +421,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
               child: Icon(Icons.delete_outline, color: cs.onErrorContainer),
             ),
             onDismissed: (_) {
-              ref.read(searchHistoryDaoProvider).deleteByHeadword(word);
+              ref.read(searchHistoryDaoProvider).deleteById(item.id);
             },
             child: ListTile(
               leading: Icon(Icons.history, color: cs.onSurfaceVariant, size: 20),

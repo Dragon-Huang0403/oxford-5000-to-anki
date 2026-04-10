@@ -103,6 +103,29 @@ class SearchHistoryDao {
     );
   }
 
+  /// Delete a single history entry by its local ID and enqueue for sync.
+  Future<void> deleteById(int id) async {
+    // Get uuid before deleting (for sync)
+    final rows = await (_db.select(_db.searchHistory)
+      ..where((t) => t.id.equals(id))
+    ).get();
+
+    await (_db.delete(_db.searchHistory)
+      ..where((t) => t.id.equals(id))
+    ).go();
+
+    if (rows.isNotEmpty && rows.first.uuid.isNotEmpty) {
+      await _db.into(_db.syncQueue).insert(
+        SyncQueueCompanion.insert(
+          tableName_: 'search_history',
+          recordId: rows.first.uuid,
+          operation: 'DELETE',
+          payload: '{}',
+        ),
+      );
+    }
+  }
+
   /// Delete all history entries for a given headword (or query if no headword)
   Future<void> deleteByHeadword(String headword) async {
     await (_db.delete(_db.searchHistory)
