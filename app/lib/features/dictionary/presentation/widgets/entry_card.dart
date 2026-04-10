@@ -385,9 +385,12 @@ class EntryCard extends ConsumerWidget {
         widgets.add(Text(', ', style: const TextStyle(fontSize: 13, color: Colors.grey)));
       }
       widgets.add(
-        GestureDetector(
-          onTap: () => onWordTap?.call(word),
-          child: Text(word, style: TextStyle(fontSize: 13, color: Colors.grey.shade600, decoration: TextDecoration.underline, decorationColor: Colors.grey.shade400)),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: () => onWordTap?.call(word),
+            child: Text(word, style: TextStyle(fontSize: 13, color: Colors.grey.shade600, decoration: TextDecoration.underline, decorationColor: Colors.grey.shade400)),
+          ),
         ),
       );
     }
