@@ -88,7 +88,6 @@ class EntryData:
     groups: list[SenseGroupData] = field(default_factory=list)
     verb_forms: list[VerbFormData] = field(default_factory=list)
     card_type: str = "word"
-    raw_html: str = ""
     synonyms: list[SynonymData] = field(default_factory=list)
     word_origin: str = ""
     word_origin_html: str = ""

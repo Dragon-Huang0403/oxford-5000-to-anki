@@ -4,7 +4,7 @@
 
 ```
 sources              — data provenance (OALD10, future sources)
-entries              — headword + POS + IPA + CEFR + raw_html (76K rows)
+entries              — headword + POS + IPA + CEFR (76K rows)
   ├── pronunciations — GB/US audio files per entry
   ├── verb_forms     — conjugation table with audio
   ├── sense_groups   — topic clusters ("intention", "arrangement", ...)
@@ -18,14 +18,14 @@ entries              — headword + POS + IPA + CEFR + raw_html (76K rows)
   ├── phrasal_verbs  — linked phrasal verb phrases
   └── extra_examples — additional example sentences
 variants             — alternate spellings → canonical entries
-audio_files          — embedded MP3 binary data (217K files)
+audio_files          — audio cache (empty in built DB; populated by app from R2)
 entries_fts          — FTS5 full-text search index
 meta                 — schema version tracking
 ```
 
 All Chinese text is **Traditional Chinese** (converted from Simplified via OpenCC at build time).
 
-Raw HTML is preserved (zlib-compressed) for every entry, enabling re-parsing if the parser is improved.
+Raw HTML is exported to Cloudflare R2 via `scripts/export_for_r2.py`, not stored in the database.
 
 ## Data Source
 
@@ -44,8 +44,9 @@ First block at offset `0x60`. Each decompressed block is Apple Dictionary Servic
 3. **Convert**: Apply OpenCC `s2t` to all Chinese text fields
 4. **Store**: Insert into SQLite with batch transactions
 5. **Variants**: Build alternate spelling index
-6. **Audio**: Read and embed all referenced MP3 files as BLOBs
-7. **Optimize**: Run PRAGMA optimize
+6. **Optimize**: Run PRAGMA optimize
+
+Audio files and raw HTML are uploaded separately to Cloudflare R2 via `scripts/upload_to_r2.sh`.
 
 ## Audio File Naming
 
@@ -66,7 +67,7 @@ Dialect codes: `gb`/`us` for words; `gbs`/`uss`/`brs`/`ams` for sentences.
 | Definitions | 110,600 |
 | Examples | 145,014 |
 | Extra Examples | 62,189 |
-| Audio Files (embedded MP3) | 217,156 |
+| Audio Files (on R2) | 217,156 |
 | Synonyms | 4,725 |
 | Word Origins | 22,325 |
 | Word Family entries | 1,198 |

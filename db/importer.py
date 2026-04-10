@@ -1,6 +1,5 @@
 """Import pipeline: read Body.data -> parse -> insert into SQLite."""
 
-import json
 import re
 import sqlite3
 import struct
@@ -70,40 +69,16 @@ def _build_variants(data: bytes, index: dict[str, int]) -> dict[str, str]:
     return variants
 
 
-def _collect_audio(entry: EntryData) -> set[str]:
-    """Collect all audio filenames referenced by an entry."""
-    files = set()
-    if entry.audio_gb:
-        files.add(entry.audio_gb)
-    if entry.audio_us:
-        files.add(entry.audio_us)
-    for vf in entry.verb_forms:
-        if vf.audio_gb:
-            files.add(vf.audio_gb)
-        if vf.audio_us:
-            files.add(vf.audio_us)
-    for g in entry.groups:
-        for s in g.senses:
-            for ex in s.examples:
-                if ex.audio_gb:
-                    files.add(ex.audio_gb)
-                if ex.audio_us:
-                    files.add(ex.audio_us)
-    return files
-
-
 def _insert_entry(db: sqlite3.Connection, source_id: int, entry: EntryData, entry_index: int) -> int:
     """Insert one entry and all its children. Returns entry_id."""
-    # Compress raw_html with zlib to save space
-    raw_html_blob = zlib.compress(entry.raw_html.encode("utf-8")) if entry.raw_html else None
     cur = db.execute(
         """INSERT INTO entries
            (source_id, headword, pos, entry_index, ipa_gb, ipa_us,
-            cefr_level, ox3000, ox5000, raw_html)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            cefr_level, ox3000, ox5000)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (source_id, entry.headword, entry.pos, entry_index,
          entry.ipa_gb, entry.ipa_us, entry.cefr_level,
-         int(entry.ox3000), int(entry.ox5000), raw_html_blob),
+         int(entry.ox3000), int(entry.ox5000)),
     )
     entry_id = cur.lastrowid
 
@@ -260,7 +235,6 @@ def import_all(db_path: str | Path, verbose: bool = False) -> None:
     total_entries = 0
     total_senses = 0
     total_examples = 0
-    all_audio_files: set[str] = set()
     failed = []
 
     headwords = sorted(index.keys())
@@ -275,9 +249,8 @@ def import_all(db_path: str | Path, verbose: bool = False) -> None:
             html = _read_entry_at(body_data, index[headword])
             entries = parse_entry(html)
 
-            for entry_index, entry in enumerate(entries):
+            for entry_index, (entry, _raw_html) in enumerate(entries):
                 _insert_entry(db, source_id, entry, entry_index)
-                all_audio_files |= _collect_audio(entry)
                 total_entries += 1
                 for g in entry.groups:
                     total_senses += len(g.senses)
@@ -285,7 +258,7 @@ def import_all(db_path: str | Path, verbose: bool = False) -> None:
                         total_examples += len(s.examples)
 
             if verbose and entries:
-                pos_list = ", ".join(e.pos for e in entries if e.pos)
+                pos_list = ", ".join(e.pos for e, _ in entries if e.pos)
                 print(f"    {headword} ({pos_list}): {len(entries)} entries", file=sys.stderr)
 
         except Exception as e:
@@ -313,30 +286,6 @@ def import_all(db_path: str | Path, verbose: bool = False) -> None:
             )
     db.commit()
 
-    # Import audio files
-    print(f"Importing {len(all_audio_files)} audio files...", file=sys.stderr)
-    audio_imported = 0
-    audio_missing = 0
-    audio_batch = 500
-    audio_list = sorted(all_audio_files)
-
-    for i, filename in enumerate(audio_list):
-        if i % audio_batch == 0 and i > 0:
-            db.commit()
-            print(f"  {i}/{len(audio_list)} audio files imported...", file=sys.stderr)
-
-        filepath = CONTENTS / filename
-        if filepath.exists():
-            db.execute(
-                "INSERT OR IGNORE INTO audio_files (filename, data) VALUES (?, ?)",
-                (filename, filepath.read_bytes()),
-            )
-            audio_imported += 1
-        else:
-            audio_missing += 1
-
-    db.commit()
-
     # Optimize
     print("Optimizing database...", file=sys.stderr)
     db.execute("PRAGMA optimize")
@@ -351,7 +300,6 @@ def import_all(db_path: str | Path, verbose: bool = False) -> None:
     print(f"  Senses:    {total_senses}", file=sys.stderr)
     print(f"  Examples:  {total_examples}", file=sys.stderr)
     print(f"  Variants:  {len(variants)}", file=sys.stderr)
-    print(f"  Audio:     {audio_imported} imported, {audio_missing} missing", file=sys.stderr)
     if failed:
         print(f"  Failed:    {len(failed)}", file=sys.stderr)
         for word, err in failed[:10]:

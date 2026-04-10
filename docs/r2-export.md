@@ -16,6 +16,7 @@ Raw HTML and audio files from the dictionary are static and never change. Instea
 oald10/
   html/   # 76,210 HTML files (raw, uncompressed)
   audio/  # 217,191 MP3 files (from oxford.dictionary/Contents/)
+  db/     # oald10.db (SQLite dictionary database)
 ```
 
 ## Usage

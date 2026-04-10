@@ -510,20 +510,18 @@ def _parse_idioms(block: str) -> list[tuple[EntryData, str]]:
     return idioms
 
 
-def parse_entry(html: str) -> list[EntryData]:
-    """Return one EntryData per PoS block + one per idiom."""
+def parse_entry(html: str) -> list[tuple[EntryData, str]]:
+    """Return (EntryData, raw_html) per PoS block + per idiom."""
     m = re.search(r'd:title="([^"]+)"', html)
     fallback = m.group(1) if m else ""
 
-    results = []
+    results: list[tuple[EntryData, str]] = []
     for block in re.split(r'(?=<div class="entry")', html):
         if 'class="entry"' not in block:
             continue
         parsed = _parse_pos_block(block, fallback)
         if parsed:
-            parsed.raw_html = block
-            results.append(parsed)
+            results.append((parsed, block))
         for idiom, idiom_html in _parse_idioms(block):
-            idiom.raw_html = idiom_html
-            results.append(idiom)
+            results.append((idiom, idiom_html))
     return results

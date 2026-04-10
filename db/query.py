@@ -2,7 +2,6 @@
 
 import re
 import sqlite3
-import zlib
 from pathlib import Path
 
 from .models import (
@@ -166,7 +165,6 @@ def _load_entry(db: sqlite3.Connection, row: sqlite3.Row) -> EntryData:
         groups=groups,
         verb_forms=verb_forms,
         card_type="idiom" if row["pos"] == "idiom" else "word",
-        raw_html=zlib.decompress(row["raw_html"]).decode("utf-8") if row["raw_html"] else "",
         synonyms=synonyms,
         word_origin=word_origin,
         word_origin_html=word_origin_html,
@@ -292,15 +290,6 @@ def get_oxford_entries(db: sqlite3.Connection, ox3000: bool = False, ox5000: boo
         f"SELECT * FROM entries WHERE {where} ORDER BY headword, entry_index",
     ).fetchall()
     return [_load_entry(db, r) for r in rows]
-
-
-def get_audio(db: sqlite3.Connection, filename: str) -> bytes | None:
-    """Get audio file data by filename."""
-    row = db.execute(
-        "SELECT data FROM audio_files WHERE filename = ?",
-        (filename,),
-    ).fetchone()
-    return row["data"] if row else None
 
 
 def to_legacy_dict(entry: EntryData) -> dict:

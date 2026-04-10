@@ -38,6 +38,16 @@ rclone copy oxford.dictionary/Contents/ "${REMOTE}:${BUCKET}/audio/" \
     --progress --transfers "$TRANSFERS" --retries 5 --low-level-retries 10 \
     --s3-no-check-bucket
 
+echo "=== Uploading dictionary database ==="
+DB_FILE="${DB_FILE:-oald10.db}"
+if [[ ! -f "$DB_FILE" ]]; then
+    echo "Error: $DB_FILE not found. Run: python build_db.py" >&2
+    exit 1
+fi
+rclone copyto "$DB_FILE" "${REMOTE}:${BUCKET}/db/oald10.db" \
+    --progress --retries 5 --low-level-retries 10 \
+    --s3-no-check-bucket
+
 echo ""
 echo "=== Verifying ==="
 rclone size "${REMOTE}:${BUCKET}/"

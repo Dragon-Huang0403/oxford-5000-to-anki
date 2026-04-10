@@ -23,7 +23,6 @@ CREATE TABLE IF NOT EXISTS entries (
     cefr_level  TEXT NOT NULL DEFAULT '',
     ox3000      INTEGER NOT NULL DEFAULT 0,
     ox5000      INTEGER NOT NULL DEFAULT 0,
-    raw_html    BLOB,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

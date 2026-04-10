@@ -7,8 +7,31 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from db.importer import _build_index, _read_entry_at, _collect_audio, BODY
+from db.importer import _build_index, _read_entry_at, BODY
+from db.models import EntryData
 from db.parser import parse_entry
+
+
+def _collect_audio(entry: EntryData) -> set[str]:
+    """Collect all audio filenames referenced by an entry."""
+    files = set()
+    if entry.audio_gb:
+        files.add(entry.audio_gb)
+    if entry.audio_us:
+        files.add(entry.audio_us)
+    for vf in entry.verb_forms:
+        if vf.audio_gb:
+            files.add(vf.audio_gb)
+        if vf.audio_us:
+            files.add(vf.audio_us)
+    for g in entry.groups:
+        for s in g.senses:
+            for ex in s.examples:
+                if ex.audio_gb:
+                    files.add(ex.audio_gb)
+                if ex.audio_us:
+                    files.add(ex.audio_us)
+    return files
 
 EXPORT_DIR = Path("export")
 HTML_DIR = EXPORT_DIR / "html"
@@ -42,7 +65,7 @@ def main():
             html = _read_entry_at(body_data, index[title])
             entries = parse_entry(html)
 
-            for entry_index, entry in enumerate(entries):
+            for entry_index, (entry, raw_html) in enumerate(entries):
                 name = sanitize_filename(entry.headword)
                 pos = sanitize_filename(entry.pos) if entry.pos else "none"
                 filename = f"{name}__{pos}__{entry_index}.html"
@@ -55,7 +78,7 @@ def main():
                     filename = f"{name}__{pos}__{entry_index}_{counter}.html"
 
                 used_filenames.add(filename)
-                (HTML_DIR / filename).write_text(entry.raw_html, encoding="utf-8")
+                (HTML_DIR / filename).write_text(raw_html, encoding="utf-8")
 
                 all_audio_files |= _collect_audio(entry)
                 total_entries += 1
