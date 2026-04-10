@@ -30,8 +30,10 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
   bool _committed = false;
   final _history = <String>[]; // navigation history stack
 
-  // Keys for scrolling to POS entries
-  final _entryKeys = <int, GlobalKey>{};
+  // Two-step search: null = show options list, int = show that entry
+  int? _selectedEntryIndex;
+  // When navigating from history with POS, auto-select matching entry
+  String? _pendingPos;
 
   @override
   void initState() {
@@ -39,6 +41,11 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
   }
 
   void _goBack() {
+    // If viewing a selected entry from multi-POS, go back to options list
+    if (_selectedEntryIndex != null) {
+      setState(() => _selectedEntryIndex = null);
+      return;
+    }
     if (_history.isEmpty) return;
     final prev = _history.removeLast();
     _lastAutoPronouncedQuery = prev; // don't re-pronounce when going back
@@ -46,7 +53,9 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     _controller.selection = TextSelection.fromPosition(TextPosition(offset: prev.length));
     setState(() {
       _committed = true;
-      _entryKeys.clear();
+
+      _selectedEntryIndex = null;
+      _pendingPos = null;
     });
     ref.invalidate(searchResultsProvider);
     ref.read(searchQueryProvider.notifier).set(prev);
@@ -79,7 +88,8 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
 
   void _onSearchChanged(String value) {
     _committed = false;
-    _entryKeys.clear();
+    _selectedEntryIndex = null;
+    _pendingPos = null;
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () {
       ref.read(searchQueryProvider.notifier).set(value.trim());
@@ -87,7 +97,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
   }
 
   /// Called when user taps a suggestion or presses Enter - commit the search
-  void _commitSearch(String word) {
+  void _commitSearch(String word, {String? pos}) {
     // Push current query to history for back navigation
     final current = ref.read(searchQueryProvider);
     if (current.isNotEmpty && current.toLowerCase() != word.toLowerCase()) {
@@ -99,70 +109,65 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     _controller.selection = TextSelection.fromPosition(TextPosition(offset: word.length));
     setState(() {
       _committed = true;
-      _entryKeys.clear();
+
+      _selectedEntryIndex = null;
+      _pendingPos = pos;
     });
     // Force provider refresh even if same word
     ref.invalidate(searchResultsProvider);
     ref.read(searchQueryProvider.notifier).set(word);
   }
 
+  /// Called when user picks a specific POS option from the options list
+  void _selectEntry(int index, DictEntry entry) {
+    setState(() {
+      _selectedEntryIndex = index;
+    });
+    // Save to history with POS
+    _lastSavedHeadword = '${entry.headword}:${entry.pos}';
+    ref.read(searchHistoryDaoProvider)
+        .addSearch(entry.headword, entryId: entry.id, headword: entry.headword, pos: entry.pos)
+        .then((_) => ref.read(syncServiceProvider)?.pushLatestSearch());
+    // Auto-pronounce the selected entry
+    _autoPronounceEntry(entry);
+  }
+
+  void _autoPronounceEntry(DictEntry entry) async {
+    final settings = ref.read(settingsDaoProvider);
+    if (!await settings.getAutoPronounce()) return;
+    final dialect = await settings.getDialect();
+    ref.read(audioServiceProvider).playPronunciation(entry.pronunciations, dialect: dialect);
+  }
+
   void _autoPronounce(List<DictEntry> entries, String query) async {
-    if (entries.isEmpty || query == _lastAutoPronouncedQuery) return;
+    if (entries.isEmpty || !_committed || query == _lastAutoPronouncedQuery) return;
     final first = entries.first;
     if (first.headword.toLowerCase() != query.toLowerCase()) return;
 
     _lastAutoPronouncedQuery = query;
-
-    // Auto-pronounce if: committed (Enter/tap) OR no other suggestions
-    if (!_committed) {
-      final suggestions = ref.read(autocompleteSuggestionsProvider);
-      final hasOtherSuggestions = suggestions.when(
-        data: (words) => words.any((w) => w.toLowerCase() != query.toLowerCase()),
-        loading: () => true,
-        error: (_, _) => false,
-      );
-      if (hasOtherSuggestions) return;
-    }
-
-    final settings = ref.read(settingsDaoProvider);
-    if (!await settings.getAutoPronounce()) return;
-    final dialect = await settings.getDialect();
-    ref.read(audioServiceProvider).playPronunciation(first.pronunciations, dialect: dialect);
+    _autoPronounceEntry(first);
   }
 
   String? _lastSavedHeadword;
 
-  /// Save to history only when results resolve, using the actual headword.
+  /// Save to history only for single-entry results (multi-entry saves on selection).
   void _saveToHistory(List<DictEntry> entries, String query) {
     if (!_committed || entries.isEmpty) return;
-    final headword = entries.first.headword;
-    if (headword == _lastSavedHeadword) return;
-    _lastSavedHeadword = headword;
+    // Multi-entry: history is saved when user picks an option in _selectEntry
+    if (entries.length > 1) return;
+    final entry = entries.first;
+    final key = '${entry.headword}:${entry.pos}';
+    if (key == _lastSavedHeadword) return;
+    _lastSavedHeadword = key;
     ref.read(searchHistoryDaoProvider)
-        .addSearch(headword, entryId: entries.first.id, headword: headword)
+        .addSearch(entry.headword, entryId: entry.id, headword: entry.headword, pos: entry.pos)
         .then((_) => ref.read(syncServiceProvider)?.pushLatestSearch());
-  }
-
-  void _scrollToEntry(int index) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final key = _entryKeys[index];
-      if (key?.currentContext != null) {
-        Scrollable.ensureVisible(
-          key!.currentContext!,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          alignment: 0.0,
-        );
-      }
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     final results = ref.watch(searchResultsProvider);
     final query = ref.watch(searchQueryProvider);
-    final suggestions = ref.watch(autocompleteSuggestionsProvider);
 
     // Focus search bar when global hotkey fires
     // Focus search bar when global hotkey fires, auto-fill clipboard word
@@ -178,8 +183,20 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     ref.listen(searchResultsProvider, (prev, next) {
       next.whenData((entries) {
         final q = ref.read(searchQueryProvider);
-        _autoPronounce(entries, q);
         _saveToHistory(entries, q);
+        // Auto-select if single entry or pending POS from history tap
+        if (entries.length == 1) {
+          if (_selectedEntryIndex == null) {
+            setState(() => _selectedEntryIndex = 0);
+          }
+          _autoPronounce(entries, q);
+        } else if (_pendingPos != null && entries.length > 1) {
+          final idx = entries.indexWhere((e) => e.pos == _pendingPos);
+          if (idx >= 0) {
+            _selectEntry(idx, entries[idx]);
+          }
+          _pendingPos = null;
+        }
       });
     });
 
@@ -205,19 +222,6 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
             child: Column(
             children: [
               _buildSearchBar(context),
-              // Autocomplete suggestions - hide when committed
-              if (query.isNotEmpty && !_committed)
-                suggestions.when(
-                  data: (words) => words.isNotEmpty ? _buildSuggestions(words) : const SizedBox.shrink(),
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, _) => const SizedBox.shrink(),
-                ),
-              // POS tabs (when multiple entries for same headword)
-              results.when(
-                data: (entries) => _buildPosTabs(entries),
-                loading: () => const SizedBox.shrink(),
-                error: (_, _) => const SizedBox.shrink(),
-              ),
               // Results (SelectionArea enables text selection)
               Expanded(
                 child: SelectionArea(
@@ -233,26 +237,20 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
                               ),
                             );
                           }
-                          // Ensure we have stable keys for each entry
-                          for (var i = _entryKeys.length; i < entries.length; i++) {
-                            _entryKeys[i] = GlobalKey();
+                          // Single entry or entry selected: show full card
+                          if (_selectedEntryIndex != null) {
+                            final idx = _selectedEntryIndex!.clamp(0, entries.length - 1);
+                            return SingleChildScrollView(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: EntryCard(
+                                entry: entries[idx],
+                                onWordTap: _commitSearch,
+                              ),
+                            );
                           }
-                          return SingleChildScrollView(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Column(
-                              children: [
-                                for (var i = 0; i < entries.length; i++)
-                                  Container(
-                                    key: _entryKeys[i],
-                                    child: EntryCard(
-                                      entry: entries[i],
-                                      onWordTap: _commitSearch,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          );
+                          // Multiple entries: show options list
+                          return _buildOptionslist(entries);
                         },
                         loading: () => const Center(child: CircularProgressIndicator()),
                         error: (e, _) => Center(child: Text('Error: $e')),
@@ -266,65 +264,52 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
       );
   }
 
-  /// POS tab bar: shows when multiple entries exist (noun, verb, idiom, etc.)
-  Widget _buildPosTabs(List<DictEntry> entries) {
-    if (entries.length <= 1) return const SizedBox.shrink();
-
-    // Group by headword to see if it's same word with different POS
-    final headwords = entries.map((e) => e.headword.toLowerCase()).toSet();
-    // Only show tabs if there are multiple POS for same-ish word
-    if (headwords.length > 3) return const SizedBox.shrink();
-
-    return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: entries.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final e = entries[index];
-          final label = e.pos.isNotEmpty ? '${e.headword} (${e.pos})' : e.headword;
-          return ActionChip(
-            label: Text(label, style: const TextStyle(fontSize: 13)),
-            onPressed: () => _scrollToEntry(index),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-          );
-        },
-      ),
-    );
-  }
-
-  /// Autocomplete dropdown
-  Widget _buildSuggestions(List<String> words) {
+  /// Options list: shows each POS variant for the user to pick
+  Widget _buildOptionslist(List<DictEntry> entries) {
     final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 240),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
-      ),
-      child: ListView.builder(
-        shrinkWrap: true,
-        padding: EdgeInsets.zero,
-        itemCount: words.length,
-        itemBuilder: (context, index) {
-          return InkWell(
-            onTap: () => _commitSearch(words[index]),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Text(
-                words[index],
-                style: const TextStyle(fontSize: 15),
-              ),
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: entries.length,
+      itemBuilder: (context, index) {
+        final e = entries[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            title: Text(
+              e.headword,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
-          );
-        },
-      ),
+            subtitle: e.pos.isNotEmpty
+                ? Text(e.pos, style: TextStyle(color: cs.primary, fontStyle: FontStyle.italic))
+                : null,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (e.cefrLevel.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(e.cefrLevel.toUpperCase(), style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer)),
+                  ),
+                if (e.ox3000) ...[
+                  const SizedBox(width: 6),
+                  Text('3K', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: cs.tertiary)),
+                ],
+                if (e.ox5000 && !e.ox3000) ...[
+                  const SizedBox(width: 6),
+                  Text('5K', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: cs.tertiary)),
+                ],
+                const SizedBox(width: 4),
+                Icon(Icons.chevron_right, color: cs.onSurfaceVariant, size: 20),
+              ],
+            ),
+            onTap: () => _selectEntry(index, e),
+          ),
+        );
+      },
     );
   }
 
@@ -333,7 +318,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Row(
         children: [
-          if (_history.isNotEmpty)
+          if (_history.isNotEmpty || _selectedEntryIndex != null)
             IconButton(
               icon: const Icon(Icons.arrow_back),
               onPressed: _goBack,
@@ -449,6 +434,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
         ),
         ...history.map((item) {
           final word = item.headword ?? item.query;
+          final pos = item.pos;
           return Dismissible(
             key: ValueKey(item.id),
             direction: DismissDirection.endToStart,
@@ -463,14 +449,29 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
             },
             child: ListTile(
               leading: Icon(Icons.history, color: cs.onSurfaceVariant, size: 20),
-              title: Text(word),
+              title: Row(
+                children: [
+                  Text(word),
+                  if (pos.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      pos,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.primary,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
               trailing: Text(
                 _relativeTime(item.searchedAt),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: cs.onSurfaceVariant,
                 ),
               ),
-              onTap: () => _commitSearch(word),
+              onTap: () => _commitSearch(word, pos: pos.isNotEmpty ? pos : null),
               contentPadding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
             ),

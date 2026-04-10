@@ -33,6 +33,7 @@ class SyncService {
         'query': row.query,
         'entry_id': row.entryId,
         'headword': row.headword,
+        'pos': row.pos,
         'searched_at': row.searchedAt,
       });
 
@@ -65,6 +66,7 @@ class SyncService {
           'query': row.query,
           'entry_id': row.entryId,
           'headword': row.headword,
+          'pos': row.pos,
           'searched_at': row.searchedAt,
         });
 
@@ -116,6 +118,7 @@ class SyncService {
             headword: Value(row['headword'] as String?),
           ).copyWith(
             uuid: Value(uuid),
+            pos: Value(row['pos'] as String? ?? ''),
             searchedAt: Value(row['searched_at'] as String),
             synced: const Value(1), // came from remote, already synced
           ),

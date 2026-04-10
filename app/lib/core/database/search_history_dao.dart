@@ -11,7 +11,7 @@ class SearchHistoryDao {
   SearchHistoryDao(this._db);
 
   /// Add a search to history. Synced=0 until SyncService pushes it.
-  Future<void> addSearch(String query, {int? entryId, String? headword}) async {
+  Future<void> addSearch(String query, {int? entryId, String? headword, String pos = ''}) async {
     await _db.into(_db.searchHistory).insert(
       SearchHistoryCompanion.insert(
         query: query,
@@ -19,6 +19,7 @@ class SearchHistoryDao {
         headword: Value(headword),
       ).copyWith(
         uuid: Value(_uuid.v4()),
+        pos: Value(pos),
         searchedAt: Value(DateTime.now().toIso8601String()),
       ),
     );
@@ -40,14 +41,14 @@ class SearchHistoryDao {
     return rows;
   }
 
-  /// Get recent searches deduplicated by headword/query (most recent timestamp wins)
+  /// Get recent searches deduplicated by headword+pos (most recent timestamp wins)
   Future<List<SearchHistoryData>> getRecentUnique({int limit = 30}) async {
     final rows = await _db.customSelect(
       '''SELECT * FROM search_history
          WHERE id IN (
            SELECT id FROM (
              SELECT id, ROW_NUMBER() OVER (
-               PARTITION BY COALESCE(headword, query)
+               PARTITION BY COALESCE(headword, query), pos
                ORDER BY searched_at DESC
              ) AS rn
              FROM search_history
@@ -68,7 +69,7 @@ class SearchHistoryDao {
          WHERE id IN (
            SELECT id FROM (
              SELECT id, ROW_NUMBER() OVER (
-               PARTITION BY COALESCE(headword, query)
+               PARTITION BY COALESCE(headword, query), pos
                ORDER BY searched_at DESC
              ) AS rn
              FROM search_history

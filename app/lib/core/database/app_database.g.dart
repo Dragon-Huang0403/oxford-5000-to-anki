@@ -2516,6 +2516,16 @@ class $SearchHistoryTable extends SearchHistory
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _posMeta = const VerificationMeta('pos');
+  @override
+  late final GeneratedColumn<String> pos = GeneratedColumn<String>(
+    'pos',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _searchedAtMeta = const VerificationMeta(
     'searchedAt',
   );
@@ -2545,6 +2555,7 @@ class $SearchHistoryTable extends SearchHistory
     query,
     entryId,
     headword,
+    pos,
     searchedAt,
     synced,
   ];
@@ -2589,6 +2600,12 @@ class $SearchHistoryTable extends SearchHistory
         headword.isAcceptableOrUnknown(data['headword']!, _headwordMeta),
       );
     }
+    if (data.containsKey('pos')) {
+      context.handle(
+        _posMeta,
+        pos.isAcceptableOrUnknown(data['pos']!, _posMeta),
+      );
+    }
     if (data.containsKey('searched_at')) {
       context.handle(
         _searchedAtMeta,
@@ -2630,6 +2647,10 @@ class $SearchHistoryTable extends SearchHistory
         DriftSqlType.string,
         data['${effectivePrefix}headword'],
       ),
+      pos: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pos'],
+      )!,
       searchedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}searched_at'],
@@ -2654,6 +2675,7 @@ class SearchHistoryData extends DataClass
   final String query;
   final int? entryId;
   final String? headword;
+  final String pos;
   final String searchedAt;
   final int synced;
   const SearchHistoryData({
@@ -2662,6 +2684,7 @@ class SearchHistoryData extends DataClass
     required this.query,
     this.entryId,
     this.headword,
+    required this.pos,
     required this.searchedAt,
     required this.synced,
   });
@@ -2677,6 +2700,7 @@ class SearchHistoryData extends DataClass
     if (!nullToAbsent || headword != null) {
       map['headword'] = Variable<String>(headword);
     }
+    map['pos'] = Variable<String>(pos);
     map['searched_at'] = Variable<String>(searchedAt);
     map['synced'] = Variable<int>(synced);
     return map;
@@ -2693,6 +2717,7 @@ class SearchHistoryData extends DataClass
       headword: headword == null && nullToAbsent
           ? const Value.absent()
           : Value(headword),
+      pos: Value(pos),
       searchedAt: Value(searchedAt),
       synced: Value(synced),
     );
@@ -2709,6 +2734,7 @@ class SearchHistoryData extends DataClass
       query: serializer.fromJson<String>(json['query']),
       entryId: serializer.fromJson<int?>(json['entryId']),
       headword: serializer.fromJson<String?>(json['headword']),
+      pos: serializer.fromJson<String>(json['pos']),
       searchedAt: serializer.fromJson<String>(json['searchedAt']),
       synced: serializer.fromJson<int>(json['synced']),
     );
@@ -2722,6 +2748,7 @@ class SearchHistoryData extends DataClass
       'query': serializer.toJson<String>(query),
       'entryId': serializer.toJson<int?>(entryId),
       'headword': serializer.toJson<String?>(headword),
+      'pos': serializer.toJson<String>(pos),
       'searchedAt': serializer.toJson<String>(searchedAt),
       'synced': serializer.toJson<int>(synced),
     };
@@ -2733,6 +2760,7 @@ class SearchHistoryData extends DataClass
     String? query,
     Value<int?> entryId = const Value.absent(),
     Value<String?> headword = const Value.absent(),
+    String? pos,
     String? searchedAt,
     int? synced,
   }) => SearchHistoryData(
@@ -2741,6 +2769,7 @@ class SearchHistoryData extends DataClass
     query: query ?? this.query,
     entryId: entryId.present ? entryId.value : this.entryId,
     headword: headword.present ? headword.value : this.headword,
+    pos: pos ?? this.pos,
     searchedAt: searchedAt ?? this.searchedAt,
     synced: synced ?? this.synced,
   );
@@ -2751,6 +2780,7 @@ class SearchHistoryData extends DataClass
       query: data.query.present ? data.query.value : this.query,
       entryId: data.entryId.present ? data.entryId.value : this.entryId,
       headword: data.headword.present ? data.headword.value : this.headword,
+      pos: data.pos.present ? data.pos.value : this.pos,
       searchedAt: data.searchedAt.present
           ? data.searchedAt.value
           : this.searchedAt,
@@ -2766,6 +2796,7 @@ class SearchHistoryData extends DataClass
           ..write('query: $query, ')
           ..write('entryId: $entryId, ')
           ..write('headword: $headword, ')
+          ..write('pos: $pos, ')
           ..write('searchedAt: $searchedAt, ')
           ..write('synced: $synced')
           ..write(')'))
@@ -2774,7 +2805,7 @@ class SearchHistoryData extends DataClass
 
   @override
   int get hashCode =>
-      Object.hash(id, uuid, query, entryId, headword, searchedAt, synced);
+      Object.hash(id, uuid, query, entryId, headword, pos, searchedAt, synced);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2784,6 +2815,7 @@ class SearchHistoryData extends DataClass
           other.query == this.query &&
           other.entryId == this.entryId &&
           other.headword == this.headword &&
+          other.pos == this.pos &&
           other.searchedAt == this.searchedAt &&
           other.synced == this.synced);
 }
@@ -2794,6 +2826,7 @@ class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
   final Value<String> query;
   final Value<int?> entryId;
   final Value<String?> headword;
+  final Value<String> pos;
   final Value<String> searchedAt;
   final Value<int> synced;
   const SearchHistoryCompanion({
@@ -2802,6 +2835,7 @@ class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
     this.query = const Value.absent(),
     this.entryId = const Value.absent(),
     this.headword = const Value.absent(),
+    this.pos = const Value.absent(),
     this.searchedAt = const Value.absent(),
     this.synced = const Value.absent(),
   });
@@ -2811,6 +2845,7 @@ class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
     required String query,
     this.entryId = const Value.absent(),
     this.headword = const Value.absent(),
+    this.pos = const Value.absent(),
     this.searchedAt = const Value.absent(),
     this.synced = const Value.absent(),
   }) : query = Value(query);
@@ -2820,6 +2855,7 @@ class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
     Expression<String>? query,
     Expression<int>? entryId,
     Expression<String>? headword,
+    Expression<String>? pos,
     Expression<String>? searchedAt,
     Expression<int>? synced,
   }) {
@@ -2829,6 +2865,7 @@ class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
       if (query != null) 'query': query,
       if (entryId != null) 'entry_id': entryId,
       if (headword != null) 'headword': headword,
+      if (pos != null) 'pos': pos,
       if (searchedAt != null) 'searched_at': searchedAt,
       if (synced != null) 'synced': synced,
     });
@@ -2840,6 +2877,7 @@ class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
     Value<String>? query,
     Value<int?>? entryId,
     Value<String?>? headword,
+    Value<String>? pos,
     Value<String>? searchedAt,
     Value<int>? synced,
   }) {
@@ -2849,6 +2887,7 @@ class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
       query: query ?? this.query,
       entryId: entryId ?? this.entryId,
       headword: headword ?? this.headword,
+      pos: pos ?? this.pos,
       searchedAt: searchedAt ?? this.searchedAt,
       synced: synced ?? this.synced,
     );
@@ -2872,6 +2911,9 @@ class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
     if (headword.present) {
       map['headword'] = Variable<String>(headword.value);
     }
+    if (pos.present) {
+      map['pos'] = Variable<String>(pos.value);
+    }
     if (searchedAt.present) {
       map['searched_at'] = Variable<String>(searchedAt.value);
     }
@@ -2889,6 +2931,7 @@ class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryData> {
           ..write('query: $query, ')
           ..write('entryId: $entryId, ')
           ..write('headword: $headword, ')
+          ..write('pos: $pos, ')
           ..write('searchedAt: $searchedAt, ')
           ..write('synced: $synced')
           ..write(')'))
@@ -5364,6 +5407,7 @@ typedef $$SearchHistoryTableCreateCompanionBuilder =
       required String query,
       Value<int?> entryId,
       Value<String?> headword,
+      Value<String> pos,
       Value<String> searchedAt,
       Value<int> synced,
     });
@@ -5374,6 +5418,7 @@ typedef $$SearchHistoryTableUpdateCompanionBuilder =
       Value<String> query,
       Value<int?> entryId,
       Value<String?> headword,
+      Value<String> pos,
       Value<String> searchedAt,
       Value<int> synced,
     });
@@ -5409,6 +5454,11 @@ class $$SearchHistoryTableFilterComposer
 
   ColumnFilters<String> get headword => $composableBuilder(
     column: $table.headword,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pos => $composableBuilder(
+    column: $table.pos,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5457,6 +5507,11 @@ class $$SearchHistoryTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get pos => $composableBuilder(
+    column: $table.pos,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get searchedAt => $composableBuilder(
     column: $table.searchedAt,
     builder: (column) => ColumnOrderings(column),
@@ -5491,6 +5546,9 @@ class $$SearchHistoryTableAnnotationComposer
 
   GeneratedColumn<String> get headword =>
       $composableBuilder(column: $table.headword, builder: (column) => column);
+
+  GeneratedColumn<String> get pos =>
+      $composableBuilder(column: $table.pos, builder: (column) => column);
 
   GeneratedColumn<String> get searchedAt => $composableBuilder(
     column: $table.searchedAt,
@@ -5541,6 +5599,7 @@ class $$SearchHistoryTableTableManager
                 Value<String> query = const Value.absent(),
                 Value<int?> entryId = const Value.absent(),
                 Value<String?> headword = const Value.absent(),
+                Value<String> pos = const Value.absent(),
                 Value<String> searchedAt = const Value.absent(),
                 Value<int> synced = const Value.absent(),
               }) => SearchHistoryCompanion(
@@ -5549,6 +5608,7 @@ class $$SearchHistoryTableTableManager
                 query: query,
                 entryId: entryId,
                 headword: headword,
+                pos: pos,
                 searchedAt: searchedAt,
                 synced: synced,
               ),
@@ -5559,6 +5619,7 @@ class $$SearchHistoryTableTableManager
                 required String query,
                 Value<int?> entryId = const Value.absent(),
                 Value<String?> headword = const Value.absent(),
+                Value<String> pos = const Value.absent(),
                 Value<String> searchedAt = const Value.absent(),
                 Value<int> synced = const Value.absent(),
               }) => SearchHistoryCompanion.insert(
@@ -5567,6 +5628,7 @@ class $$SearchHistoryTableTableManager
                 query: query,
                 entryId: entryId,
                 headword: headword,
+                pos: pos,
                 searchedAt: searchedAt,
                 synced: synced,
               ),

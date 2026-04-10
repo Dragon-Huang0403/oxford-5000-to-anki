@@ -1,0 +1,1 @@
+ALTER TABLE search_history ADD COLUMN pos TEXT NOT NULL DEFAULT '';
