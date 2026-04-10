@@ -27,7 +27,7 @@ class UserDatabase extends _$UserDatabase {
   UserDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -40,6 +40,10 @@ class UserDatabase extends _$UserDatabase {
       if (from < 3) {
         await m.addColumn(reviewCards, reviewCards.step);
         await m.addColumn(reviewLogs, reviewLogs.reviewDuration);
+      }
+      if (from < 4) {
+        await m.addColumn(reviewCards, reviewCards.synced);
+        await m.addColumn(reviewLogs, reviewLogs.synced);
       }
     },
   );

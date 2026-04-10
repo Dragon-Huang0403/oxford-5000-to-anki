@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database_provider.dart';
+import '../../../core/sync/sync_provider.dart';
 import '../domain/review_filter.dart';
 import '../domain/review_service.dart';
 import '../domain/review_session.dart';
@@ -106,7 +107,8 @@ class ReviewSessionNotifier extends AsyncNotifier<ReviewSession?> {
     final maxReviewsPerDay = await settingsDao.getMaxReviewsPerDay();
     final cardOrder = await settingsDao.getReviewCardOrder();
 
-    final session = ReviewSession(dao: dao, service: service);
+    final syncService = ref.read(syncServiceProvider);
+    final session = ReviewSession(dao: dao, service: service, syncService: syncService);
     await session.loadQueue(
       filter: filter,
       newCardsPerDay: newCardsPerDay,

@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../app.dart';
+import '../../../app.dart' show deserializeHotKey, serializeHotKey, hotKeyDisplayString, quickSearchHotKeyProvider, showTrayIconProvider, themeModeProvider;
 import '../../../core/audio/audio_provider.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/database/database_provider.dart';
@@ -19,6 +21,8 @@ final _settingsProvider = FutureProvider<_AppSettings>((ref) async {
   final maxReviewsPerDay = await dao.getMaxReviewsPerDay();
   final reviewAutoPronounce = await dao.getReviewAutoPronounce();
   final reviewCardOrder = await dao.getReviewCardOrder();
+  final quickSearchHotKey = Platform.isMacOS ? await dao.getQuickSearchHotKey() : '';
+  final showTrayIcon = Platform.isMacOS ? await dao.getShowTrayIcon() : false;
   return _AppSettings(
     dialect: dialect,
     autoPronounce: autoPronounce,
@@ -27,6 +31,8 @@ final _settingsProvider = FutureProvider<_AppSettings>((ref) async {
     maxReviewsPerDay: maxReviewsPerDay,
     reviewAutoPronounce: reviewAutoPronounce,
     reviewCardOrder: reviewCardOrder,
+    quickSearchHotKey: quickSearchHotKey,
+    showTrayIcon: showTrayIcon,
   );
 });
 
@@ -38,6 +44,8 @@ class _AppSettings {
   final int maxReviewsPerDay;
   final bool reviewAutoPronounce;
   final String reviewCardOrder;
+  final String quickSearchHotKey;
+  final bool showTrayIcon;
   _AppSettings({
     required this.dialect,
     required this.autoPronounce,
@@ -46,6 +54,8 @@ class _AppSettings {
     required this.maxReviewsPerDay,
     required this.reviewAutoPronounce,
     required this.reviewCardOrder,
+    required this.quickSearchHotKey,
+    required this.showTrayIcon,
   });
 }
 
@@ -123,6 +133,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const Divider(),
             const _SectionHeader('Appearance'),
             _ThemeTile(settings.themeMode, ref),
+            // Quick Search (macOS only)
+            if (Platform.isMacOS) ...[
+              const Divider(),
+              const _SectionHeader('Quick Search'),
+              _HotKeyTile(settings.quickSearchHotKey, ref),
+              _TrayIconTile(settings.showTrayIcon, ref),
+            ],
             const Divider(),
             const _SectionHeader('Review'),
             _ReviewAutoPronounceTile(settings.reviewAutoPronounce, ref),
@@ -480,6 +497,67 @@ class _MaxReviewsPerDayTile extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+class _HotKeyTile extends StatefulWidget {
+  final String hotKeyJson;
+  final WidgetRef ref;
+  const _HotKeyTile(this.hotKeyJson, this.ref);
+
+  @override
+  State<_HotKeyTile> createState() => _HotKeyTileState();
+}
+
+class _HotKeyTileState extends State<_HotKeyTile> {
+  bool _recording = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final hotKey = deserializeHotKey(widget.hotKeyJson);
+    final display = hotKeyDisplayString(hotKey);
+
+    return ListTile(
+      title: const Text('Global shortcut'),
+      subtitle: Text(_recording ? 'Press new shortcut...' : display),
+      trailing: _recording
+          ? SizedBox(
+              width: 200,
+              child: HotKeyRecorder(
+                onHotKeyRecorded: (newHotKey) async {
+                  final json = serializeHotKey(newHotKey);
+                  await widget.ref.read(settingsDaoProvider).setQuickSearchHotKey(json);
+                  widget.ref.invalidate(_settingsProvider);
+                  widget.ref.invalidate(quickSearchHotKeyProvider);
+                  if (mounted) setState(() => _recording = false);
+                },
+              ),
+            )
+          : TextButton(
+              onPressed: () => setState(() => _recording = true),
+              child: const Text('Change'),
+            ),
+    );
+  }
+}
+
+class _TrayIconTile extends StatelessWidget {
+  final bool enabled;
+  final WidgetRef ref;
+  const _TrayIconTile(this.enabled, this.ref);
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile(
+      title: const Text('Menu bar icon'),
+      subtitle: const Text('Show icon in menu bar for quick access'),
+      value: enabled,
+      onChanged: (val) async {
+        await ref.read(settingsDaoProvider).setShowTrayIcon(val);
+        ref.invalidate(_settingsProvider);
+        ref.invalidate(showTrayIconProvider);
+      },
     );
   }
 }

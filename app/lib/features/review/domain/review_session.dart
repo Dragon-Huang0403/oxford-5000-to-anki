@@ -1,6 +1,7 @@
 import 'package:fsrs/fsrs.dart' as fsrs;
 import '../../../core/database/app_database.dart';
 import '../../../core/database/review_dao.dart';
+import '../../../core/sync/sync_service.dart';
 import 'review_filter.dart';
 import 'review_service.dart';
 
@@ -37,14 +38,19 @@ class QueueCard {
 class ReviewSession {
   final ReviewDao _dao;
   final ReviewService _service;
+  final SyncService? _syncService;
   final List<QueueCard> _queue = [];
   int _currentIndex = 0;
   final SessionStats stats = SessionStats();
   bool _isLoaded = false;
 
-  ReviewSession({required ReviewDao dao, required ReviewService service})
-      : _dao = dao,
-        _service = service;
+  ReviewSession({
+    required ReviewDao dao,
+    required ReviewService service,
+    SyncService? syncService,
+  })  : _dao = dao,
+        _service = service,
+        _syncService = syncService;
 
   bool get isLoaded => _isLoaded;
   bool get isEmpty => _queue.isEmpty;
@@ -122,6 +128,9 @@ class ReviewSession {
       );
       await _dao.upsertCard(result.card);
       await _dao.insertLog(result.log);
+      // Fire-and-forget sync to Supabase
+      _syncService?.pushLatestReviewCard(result.card.id.value);
+      _syncService?.pushLatestReviewLog(result.log.id.value);
       stats.newLearned++;
     } else {
       // Existing card
@@ -131,6 +140,9 @@ class ReviewSession {
       );
       await _dao.upsertCard(result.card);
       await _dao.insertLog(result.log);
+      // Fire-and-forget sync to Supabase
+      _syncService?.pushLatestReviewCard(result.card.id.value);
+      _syncService?.pushLatestReviewLog(result.log.id.value);
     }
 
     stats.reviewed++;

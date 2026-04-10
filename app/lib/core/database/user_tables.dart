@@ -19,6 +19,7 @@ class ReviewCards extends Table {
   TextColumn get lastReview => text().named('last_review').nullable()();
   TextColumn get createdAt => text().named('created_at').withDefault(Constant(DateTime.now().toIso8601String()))();
   TextColumn get updatedAt => text().named('updated_at').withDefault(Constant(DateTime.now().toIso8601String()))();
+  IntColumn get synced => integer().withDefault(const Constant(0))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -39,6 +40,7 @@ class ReviewLogs extends Table {
   IntColumn get scheduledDays => integer().named('scheduled_days')();
   IntColumn get reviewDuration => integer().named('review_duration').nullable()();
   TextColumn get reviewedAt => text().named('reviewed_at').withDefault(Constant(DateTime.now().toIso8601String()))();
+  IntColumn get synced => integer().withDefault(const Constant(0))();
 
   @override
   Set<Column> get primaryKey => {id};

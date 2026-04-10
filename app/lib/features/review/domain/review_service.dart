@@ -59,6 +59,7 @@ class ReviewService {
       step: Value(result.card.step),
       lastReview: Value(result.card.lastReview?.toIso8601String()),
       updatedAt: Value(now.toIso8601String()),
+      synced: const Value(0),
     );
 
     final log = ReviewLogsCompanion.insert(

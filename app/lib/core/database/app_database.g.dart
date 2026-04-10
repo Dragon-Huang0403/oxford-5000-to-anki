@@ -181,6 +181,16 @@ class $ReviewCardsTable extends ReviewCards
     requiredDuringInsert: false,
     defaultValue: Constant(DateTime.now().toIso8601String()),
   );
+  static const VerificationMeta _syncedMeta = const VerificationMeta('synced');
+  @override
+  late final GeneratedColumn<int> synced = GeneratedColumn<int>(
+    'synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -199,6 +209,7 @@ class $ReviewCardsTable extends ReviewCards
     lastReview,
     createdAt,
     updatedAt,
+    synced,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -319,6 +330,12 @@ class $ReviewCardsTable extends ReviewCards
         updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
       );
     }
+    if (data.containsKey('synced')) {
+      context.handle(
+        _syncedMeta,
+        synced.isAcceptableOrUnknown(data['synced']!, _syncedMeta),
+      );
+    }
     return context;
   }
 
@@ -392,6 +409,10 @@ class $ReviewCardsTable extends ReviewCards
         DriftSqlType.string,
         data['${effectivePrefix}updated_at'],
       )!,
+      synced: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}synced'],
+      )!,
     );
   }
 
@@ -418,6 +439,7 @@ class ReviewCard extends DataClass implements Insertable<ReviewCard> {
   final String? lastReview;
   final String createdAt;
   final String updatedAt;
+  final int synced;
   const ReviewCard({
     required this.id,
     required this.entryId,
@@ -435,6 +457,7 @@ class ReviewCard extends DataClass implements Insertable<ReviewCard> {
     this.lastReview,
     required this.createdAt,
     required this.updatedAt,
+    required this.synced,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -459,6 +482,7 @@ class ReviewCard extends DataClass implements Insertable<ReviewCard> {
     }
     map['created_at'] = Variable<String>(createdAt);
     map['updated_at'] = Variable<String>(updatedAt);
+    map['synced'] = Variable<int>(synced);
     return map;
   }
 
@@ -482,6 +506,7 @@ class ReviewCard extends DataClass implements Insertable<ReviewCard> {
           : Value(lastReview),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
+      synced: Value(synced),
     );
   }
 
@@ -507,6 +532,7 @@ class ReviewCard extends DataClass implements Insertable<ReviewCard> {
       lastReview: serializer.fromJson<String?>(json['lastReview']),
       createdAt: serializer.fromJson<String>(json['createdAt']),
       updatedAt: serializer.fromJson<String>(json['updatedAt']),
+      synced: serializer.fromJson<int>(json['synced']),
     );
   }
   @override
@@ -529,6 +555,7 @@ class ReviewCard extends DataClass implements Insertable<ReviewCard> {
       'lastReview': serializer.toJson<String?>(lastReview),
       'createdAt': serializer.toJson<String>(createdAt),
       'updatedAt': serializer.toJson<String>(updatedAt),
+      'synced': serializer.toJson<int>(synced),
     };
   }
 
@@ -549,6 +576,7 @@ class ReviewCard extends DataClass implements Insertable<ReviewCard> {
     Value<String?> lastReview = const Value.absent(),
     String? createdAt,
     String? updatedAt,
+    int? synced,
   }) => ReviewCard(
     id: id ?? this.id,
     entryId: entryId ?? this.entryId,
@@ -566,6 +594,7 @@ class ReviewCard extends DataClass implements Insertable<ReviewCard> {
     lastReview: lastReview.present ? lastReview.value : this.lastReview,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    synced: synced ?? this.synced,
   );
   ReviewCard copyWithCompanion(ReviewCardsCompanion data) {
     return ReviewCard(
@@ -593,6 +622,7 @@ class ReviewCard extends DataClass implements Insertable<ReviewCard> {
           : this.lastReview,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      synced: data.synced.present ? data.synced.value : this.synced,
     );
   }
 
@@ -614,7 +644,8 @@ class ReviewCard extends DataClass implements Insertable<ReviewCard> {
           ..write('step: $step, ')
           ..write('lastReview: $lastReview, ')
           ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('synced: $synced')
           ..write(')'))
         .toString();
   }
@@ -637,6 +668,7 @@ class ReviewCard extends DataClass implements Insertable<ReviewCard> {
     lastReview,
     createdAt,
     updatedAt,
+    synced,
   );
   @override
   bool operator ==(Object other) =>
@@ -657,7 +689,8 @@ class ReviewCard extends DataClass implements Insertable<ReviewCard> {
           other.step == this.step &&
           other.lastReview == this.lastReview &&
           other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.synced == this.synced);
 }
 
 class ReviewCardsCompanion extends UpdateCompanion<ReviewCard> {
@@ -677,6 +710,7 @@ class ReviewCardsCompanion extends UpdateCompanion<ReviewCard> {
   final Value<String?> lastReview;
   final Value<String> createdAt;
   final Value<String> updatedAt;
+  final Value<int> synced;
   final Value<int> rowid;
   const ReviewCardsCompanion({
     this.id = const Value.absent(),
@@ -695,6 +729,7 @@ class ReviewCardsCompanion extends UpdateCompanion<ReviewCard> {
     this.lastReview = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.synced = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ReviewCardsCompanion.insert({
@@ -714,6 +749,7 @@ class ReviewCardsCompanion extends UpdateCompanion<ReviewCard> {
     this.lastReview = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.synced = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        entryId = Value(entryId),
@@ -736,6 +772,7 @@ class ReviewCardsCompanion extends UpdateCompanion<ReviewCard> {
     Expression<String>? lastReview,
     Expression<String>? createdAt,
     Expression<String>? updatedAt,
+    Expression<int>? synced,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -755,6 +792,7 @@ class ReviewCardsCompanion extends UpdateCompanion<ReviewCard> {
       if (lastReview != null) 'last_review': lastReview,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (synced != null) 'synced': synced,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -776,6 +814,7 @@ class ReviewCardsCompanion extends UpdateCompanion<ReviewCard> {
     Value<String?>? lastReview,
     Value<String>? createdAt,
     Value<String>? updatedAt,
+    Value<int>? synced,
     Value<int>? rowid,
   }) {
     return ReviewCardsCompanion(
@@ -795,6 +834,7 @@ class ReviewCardsCompanion extends UpdateCompanion<ReviewCard> {
       lastReview: lastReview ?? this.lastReview,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      synced: synced ?? this.synced,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -850,6 +890,9 @@ class ReviewCardsCompanion extends UpdateCompanion<ReviewCard> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<String>(updatedAt.value);
     }
+    if (synced.present) {
+      map['synced'] = Variable<int>(synced.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -875,6 +918,7 @@ class ReviewCardsCompanion extends UpdateCompanion<ReviewCard> {
           ..write('lastReview: $lastReview, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('synced: $synced, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -999,6 +1043,16 @@ class $ReviewLogsTable extends ReviewLogs
     requiredDuringInsert: false,
     defaultValue: Constant(DateTime.now().toIso8601String()),
   );
+  static const VerificationMeta _syncedMeta = const VerificationMeta('synced');
+  @override
+  late final GeneratedColumn<int> synced = GeneratedColumn<int>(
+    'synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1012,6 +1066,7 @@ class $ReviewLogsTable extends ReviewLogs
     scheduledDays,
     reviewDuration,
     reviewedAt,
+    synced,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1115,6 +1170,12 @@ class $ReviewLogsTable extends ReviewLogs
         reviewedAt.isAcceptableOrUnknown(data['reviewed_at']!, _reviewedAtMeta),
       );
     }
+    if (data.containsKey('synced')) {
+      context.handle(
+        _syncedMeta,
+        synced.isAcceptableOrUnknown(data['synced']!, _syncedMeta),
+      );
+    }
     return context;
   }
 
@@ -1168,6 +1229,10 @@ class $ReviewLogsTable extends ReviewLogs
         DriftSqlType.string,
         data['${effectivePrefix}reviewed_at'],
       )!,
+      synced: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}synced'],
+      )!,
     );
   }
 
@@ -1189,6 +1254,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
   final int scheduledDays;
   final int? reviewDuration;
   final String reviewedAt;
+  final int synced;
   const ReviewLog({
     required this.id,
     required this.cardId,
@@ -1201,6 +1267,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
     required this.scheduledDays,
     this.reviewDuration,
     required this.reviewedAt,
+    required this.synced,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1218,6 +1285,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
       map['review_duration'] = Variable<int>(reviewDuration);
     }
     map['reviewed_at'] = Variable<String>(reviewedAt);
+    map['synced'] = Variable<int>(synced);
     return map;
   }
 
@@ -1236,6 +1304,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
           ? const Value.absent()
           : Value(reviewDuration),
       reviewedAt: Value(reviewedAt),
+      synced: Value(synced),
     );
   }
 
@@ -1256,6 +1325,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
       scheduledDays: serializer.fromJson<int>(json['scheduledDays']),
       reviewDuration: serializer.fromJson<int?>(json['reviewDuration']),
       reviewedAt: serializer.fromJson<String>(json['reviewedAt']),
+      synced: serializer.fromJson<int>(json['synced']),
     );
   }
   @override
@@ -1273,6 +1343,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
       'scheduledDays': serializer.toJson<int>(scheduledDays),
       'reviewDuration': serializer.toJson<int?>(reviewDuration),
       'reviewedAt': serializer.toJson<String>(reviewedAt),
+      'synced': serializer.toJson<int>(synced),
     };
   }
 
@@ -1288,6 +1359,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
     int? scheduledDays,
     Value<int?> reviewDuration = const Value.absent(),
     String? reviewedAt,
+    int? synced,
   }) => ReviewLog(
     id: id ?? this.id,
     cardId: cardId ?? this.cardId,
@@ -1302,6 +1374,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
         ? reviewDuration.value
         : this.reviewDuration,
     reviewedAt: reviewedAt ?? this.reviewedAt,
+    synced: synced ?? this.synced,
   );
   ReviewLog copyWithCompanion(ReviewLogsCompanion data) {
     return ReviewLog(
@@ -1326,6 +1399,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
       reviewedAt: data.reviewedAt.present
           ? data.reviewedAt.value
           : this.reviewedAt,
+      synced: data.synced.present ? data.synced.value : this.synced,
     );
   }
 
@@ -1342,7 +1416,8 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
           ..write('elapsedDays: $elapsedDays, ')
           ..write('scheduledDays: $scheduledDays, ')
           ..write('reviewDuration: $reviewDuration, ')
-          ..write('reviewedAt: $reviewedAt')
+          ..write('reviewedAt: $reviewedAt, ')
+          ..write('synced: $synced')
           ..write(')'))
         .toString();
   }
@@ -1360,6 +1435,7 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
     scheduledDays,
     reviewDuration,
     reviewedAt,
+    synced,
   );
   @override
   bool operator ==(Object other) =>
@@ -1375,7 +1451,8 @@ class ReviewLog extends DataClass implements Insertable<ReviewLog> {
           other.elapsedDays == this.elapsedDays &&
           other.scheduledDays == this.scheduledDays &&
           other.reviewDuration == this.reviewDuration &&
-          other.reviewedAt == this.reviewedAt);
+          other.reviewedAt == this.reviewedAt &&
+          other.synced == this.synced);
 }
 
 class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
@@ -1390,6 +1467,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
   final Value<int> scheduledDays;
   final Value<int?> reviewDuration;
   final Value<String> reviewedAt;
+  final Value<int> synced;
   final Value<int> rowid;
   const ReviewLogsCompanion({
     this.id = const Value.absent(),
@@ -1403,6 +1481,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
     this.scheduledDays = const Value.absent(),
     this.reviewDuration = const Value.absent(),
     this.reviewedAt = const Value.absent(),
+    this.synced = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ReviewLogsCompanion.insert({
@@ -1417,6 +1496,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
     required int scheduledDays,
     this.reviewDuration = const Value.absent(),
     this.reviewedAt = const Value.absent(),
+    this.synced = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        cardId = Value(cardId),
@@ -1439,6 +1519,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
     Expression<int>? scheduledDays,
     Expression<int>? reviewDuration,
     Expression<String>? reviewedAt,
+    Expression<int>? synced,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1453,6 +1534,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
       if (scheduledDays != null) 'scheduled_days': scheduledDays,
       if (reviewDuration != null) 'review_duration': reviewDuration,
       if (reviewedAt != null) 'reviewed_at': reviewedAt,
+      if (synced != null) 'synced': synced,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1469,6 +1551,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
     Value<int>? scheduledDays,
     Value<int?>? reviewDuration,
     Value<String>? reviewedAt,
+    Value<int>? synced,
     Value<int>? rowid,
   }) {
     return ReviewLogsCompanion(
@@ -1483,6 +1566,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
       scheduledDays: scheduledDays ?? this.scheduledDays,
       reviewDuration: reviewDuration ?? this.reviewDuration,
       reviewedAt: reviewedAt ?? this.reviewedAt,
+      synced: synced ?? this.synced,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1523,6 +1607,9 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
     if (reviewedAt.present) {
       map['reviewed_at'] = Variable<String>(reviewedAt.value);
     }
+    if (synced.present) {
+      map['synced'] = Variable<int>(synced.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1543,6 +1630,7 @@ class ReviewLogsCompanion extends UpdateCompanion<ReviewLog> {
           ..write('scheduledDays: $scheduledDays, ')
           ..write('reviewDuration: $reviewDuration, ')
           ..write('reviewedAt: $reviewedAt, ')
+          ..write('synced: $synced, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4044,6 +4132,7 @@ typedef $$ReviewCardsTableCreateCompanionBuilder =
       Value<String?> lastReview,
       Value<String> createdAt,
       Value<String> updatedAt,
+      Value<int> synced,
       Value<int> rowid,
     });
 typedef $$ReviewCardsTableUpdateCompanionBuilder =
@@ -4064,6 +4153,7 @@ typedef $$ReviewCardsTableUpdateCompanionBuilder =
       Value<String?> lastReview,
       Value<String> createdAt,
       Value<String> updatedAt,
+      Value<int> synced,
       Value<int> rowid,
     });
 
@@ -4153,6 +4243,11 @@ class $$ReviewCardsTableFilterComposer
 
   ColumnFilters<String> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get synced => $composableBuilder(
+    column: $table.synced,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -4245,6 +4340,11 @@ class $$ReviewCardsTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get synced => $composableBuilder(
+    column: $table.synced,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ReviewCardsTableAnnotationComposer
@@ -4311,6 +4411,9 @@ class $$ReviewCardsTableAnnotationComposer
 
   GeneratedColumn<String> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get synced =>
+      $composableBuilder(column: $table.synced, builder: (column) => column);
 }
 
 class $$ReviewCardsTableTableManager
@@ -4360,6 +4463,7 @@ class $$ReviewCardsTableTableManager
                 Value<String?> lastReview = const Value.absent(),
                 Value<String> createdAt = const Value.absent(),
                 Value<String> updatedAt = const Value.absent(),
+                Value<int> synced = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ReviewCardsCompanion(
                 id: id,
@@ -4378,6 +4482,7 @@ class $$ReviewCardsTableTableManager
                 lastReview: lastReview,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                synced: synced,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4398,6 +4503,7 @@ class $$ReviewCardsTableTableManager
                 Value<String?> lastReview = const Value.absent(),
                 Value<String> createdAt = const Value.absent(),
                 Value<String> updatedAt = const Value.absent(),
+                Value<int> synced = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ReviewCardsCompanion.insert(
                 id: id,
@@ -4416,6 +4522,7 @@ class $$ReviewCardsTableTableManager
                 lastReview: lastReview,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                synced: synced,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -4456,6 +4563,7 @@ typedef $$ReviewLogsTableCreateCompanionBuilder =
       required int scheduledDays,
       Value<int?> reviewDuration,
       Value<String> reviewedAt,
+      Value<int> synced,
       Value<int> rowid,
     });
 typedef $$ReviewLogsTableUpdateCompanionBuilder =
@@ -4471,6 +4579,7 @@ typedef $$ReviewLogsTableUpdateCompanionBuilder =
       Value<int> scheduledDays,
       Value<int?> reviewDuration,
       Value<String> reviewedAt,
+      Value<int> synced,
       Value<int> rowid,
     });
 
@@ -4535,6 +4644,11 @@ class $$ReviewLogsTableFilterComposer
 
   ColumnFilters<String> get reviewedAt => $composableBuilder(
     column: $table.reviewedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get synced => $composableBuilder(
+    column: $table.synced,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -4602,6 +4716,11 @@ class $$ReviewLogsTableOrderingComposer
     column: $table.reviewedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get synced => $composableBuilder(
+    column: $table.synced,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ReviewLogsTableAnnotationComposer
@@ -4655,6 +4774,9 @@ class $$ReviewLogsTableAnnotationComposer
     column: $table.reviewedAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get synced =>
+      $composableBuilder(column: $table.synced, builder: (column) => column);
 }
 
 class $$ReviewLogsTableTableManager
@@ -4699,6 +4821,7 @@ class $$ReviewLogsTableTableManager
                 Value<int> scheduledDays = const Value.absent(),
                 Value<int?> reviewDuration = const Value.absent(),
                 Value<String> reviewedAt = const Value.absent(),
+                Value<int> synced = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ReviewLogsCompanion(
                 id: id,
@@ -4712,6 +4835,7 @@ class $$ReviewLogsTableTableManager
                 scheduledDays: scheduledDays,
                 reviewDuration: reviewDuration,
                 reviewedAt: reviewedAt,
+                synced: synced,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4727,6 +4851,7 @@ class $$ReviewLogsTableTableManager
                 required int scheduledDays,
                 Value<int?> reviewDuration = const Value.absent(),
                 Value<String> reviewedAt = const Value.absent(),
+                Value<int> synced = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ReviewLogsCompanion.insert(
                 id: id,
@@ -4740,6 +4865,7 @@ class $$ReviewLogsTableTableManager
                 scheduledDays: scheduledDays,
                 reviewDuration: reviewDuration,
                 reviewedAt: reviewedAt,
+                synced: synced,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
