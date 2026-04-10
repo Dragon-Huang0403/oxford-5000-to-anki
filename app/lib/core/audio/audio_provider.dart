@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../database/database_provider.dart';
 import 'audio_service.dart';
 
 final audioServiceProvider = Provider<AudioService>((ref) {
@@ -17,7 +16,7 @@ class OfflineAudioState {
   final int totalPacks;
   final int filesExtracted;
   final int downloadedBytes;
-  final int totalAudioFiles;
+  final bool allPacksComplete;
   final String? error;
 
   const OfflineAudioState({
@@ -28,12 +27,11 @@ class OfflineAudioState {
     this.totalPacks = 0,
     this.filesExtracted = 0,
     this.downloadedBytes = 0,
-    this.totalAudioFiles = 0,
+    this.allPacksComplete = false,
     this.error,
   });
 
-  bool get isFullyDownloaded =>
-      totalAudioFiles > 0 && cachedFiles >= totalAudioFiles;
+  bool get isFullyDownloaded => allPacksComplete && cachedFiles > 0;
   double get progress => totalPacks > 0 ? completedPacks / totalPacks : 0;
 
   String get cacheSizeFormatted {
@@ -51,13 +49,12 @@ class OfflineAudioNotifier extends AsyncNotifier<OfflineAudioState> {
   @override
   Future<OfflineAudioState> build() async {
     final audio = ref.read(audioServiceProvider);
-    final dictDb = ref.read(dictionaryDbProvider);
     final stats = await audio.getCacheStats();
-    final allFilenames = await dictDb.getAllAudioFilenames();
+    final complete = await audio.isDownloadComplete();
     return OfflineAudioState(
       cachedFiles: stats.fileCount,
       cachedBytes: stats.sizeBytes,
-      totalAudioFiles: allFilenames.length,
+      allPacksComplete: complete,
     );
   }
 
@@ -73,7 +70,7 @@ class OfflineAudioNotifier extends AsyncNotifier<OfflineAudioState> {
       OfflineAudioState(
         cachedFiles: current.cachedFiles,
         cachedBytes: current.cachedBytes,
-        totalAudioFiles: current.totalAudioFiles,
+        allPacksComplete: current.allPacksComplete,
         downloading: true,
       ),
     );
@@ -86,7 +83,7 @@ class OfflineAudioNotifier extends AsyncNotifier<OfflineAudioState> {
             OfflineAudioState(
               cachedFiles: current.cachedFiles + filesExtracted,
               cachedBytes: current.cachedBytes + bytes,
-              totalAudioFiles: current.totalAudioFiles,
+              allPacksComplete: current.allPacksComplete,
               downloading: true,
               completedPacks: completedPacks,
               totalPacks: totalPacks,
@@ -101,7 +98,7 @@ class OfflineAudioNotifier extends AsyncNotifier<OfflineAudioState> {
         OfflineAudioState(
           cachedFiles: stats.fileCount,
           cachedBytes: stats.sizeBytes,
-          totalAudioFiles: current.totalAudioFiles,
+          allPacksComplete: true,
         ),
       );
     } catch (e) {
@@ -110,7 +107,7 @@ class OfflineAudioNotifier extends AsyncNotifier<OfflineAudioState> {
         OfflineAudioState(
           cachedFiles: stats.fileCount,
           cachedBytes: stats.sizeBytes,
-          totalAudioFiles: current.totalAudioFiles,
+          allPacksComplete: current.allPacksComplete,
           error: e.toString(),
         ),
       );

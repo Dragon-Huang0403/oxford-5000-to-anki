@@ -31,6 +31,12 @@ class AudioDb {
         name TEXT PRIMARY KEY
       )
     ''');
+    await _db.customStatement('''
+      CREATE TABLE IF NOT EXISTS meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
     _initialized = true;
   }
 
@@ -98,10 +104,41 @@ class AudioDb {
     );
   }
 
+  /// Returns true if all audio packs have been downloaded.
+  /// Falls back to checking completed_packs > 0 if total_packs
+  /// meta hasn't been stored yet (upgrade path).
+  Future<bool> isDownloadComplete() async {
+    await init();
+    final totalRow = await _db.customSelect(
+      "SELECT value FROM meta WHERE key = 'total_packs'",
+    ).get();
+    final completedRow = await _db.customSelect(
+      'SELECT COUNT(*) as c FROM completed_packs',
+    ).getSingle();
+    final completedCount = completedRow.data['c'] as int;
+    if (totalRow.isEmpty) {
+      // No manifest stored yet — if we have completed packs, assume complete
+      // (upgrade path: user downloaded before this code was added).
+      return completedCount > 0;
+    }
+    final total = int.tryParse(totalRow.first.data['value'] as String) ?? 0;
+    if (total == 0) return false;
+    return completedCount >= total;
+  }
+
+  Future<void> setMeta(String key, String value) async {
+    await init();
+    await _db.customInsert(
+      'INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)',
+      variables: [Variable.withString(key), Variable.withString(value)],
+    );
+  }
+
   Future<void> clear() async {
     await init();
     await _db.customStatement('DELETE FROM audio_files');
     await _db.customStatement('DELETE FROM completed_packs');
+    await _db.customStatement('DELETE FROM meta');
     await _db.customStatement('VACUUM');
   }
 
@@ -194,6 +231,7 @@ class AudioService {
       final manifest =
           (jsonDecode(manifestRes.body) as List).cast<Map<String, dynamic>>();
 
+      await audioDB.setMeta('total_packs', manifest.length.toString());
       final completed = await audioDB.getCompletedPacks();
       final remaining =
           manifest.where((p) => !completed.contains(p['name'])).toList();
@@ -280,6 +318,9 @@ class AudioService {
 
   /// Cache stats from audio.db.
   Future<({int fileCount, int sizeBytes})> getCacheStats() => audioDB.stats();
+
+  /// Whether all audio packs have been downloaded.
+  Future<bool> isDownloadComplete() => audioDB.isDownloadComplete();
 
   /// Clear all cached audio.
   Future<void> clearCache() => audioDB.clear();

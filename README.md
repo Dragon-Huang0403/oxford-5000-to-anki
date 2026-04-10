@@ -1,71 +1,153 @@
-# OALD10 Dictionary App & Anki Deck Generator
+# Deckionary
 
-Python toolkit for the **Oxford Advanced Learner's Dictionary 10th Edition**: a SQLite dictionary database, a web dictionary browser, and an Anki flashcard generator.
+A dictionary app powered by the **Oxford Advanced Learner's Dictionary (OALD10)** with FSRS spaced repetition, global quick search, and cross-device sync. Built with Flutter.
 
-## Requirements
+## Features
 
-- Python 3.10+
-- A copy of the OALD10 macOS dictionary bundle (`oxford.dictionary`)
+**Dictionary**
+- Multi-tier search: exact match, variant spelling, suffix stripping, prefix autocomplete, fuzzy typo tolerance
+- Full entries with pronunciations, verb forms, sense groups, examples, synonyms, word families, collocations, cross-references, phrasal verbs
+- Oxford 3000/5000 and CEFR level indicators
+- Search history with navigation back/forward
+
+**Spaced Repetition (FSRS)**
+- FSRS-4.5 scheduler with 4-level rating
+- Configurable daily limits for new cards and reviews
+- Auto-pronounce during review
+
+**Audio**
+- US/GB pronunciation playback from CDN
+- Full offline audio download (~1.7 GB) cached in SQLite
+
+**Quick Search (macOS)**
+- Global hotkey (default Cmd+Shift+D, configurable) to show/hide from any app or desktop
+- Clipboard auto-search: copies a word then press the hotkey
+- Window appears on whichever desktop/display the mouse cursor is on
+- Optional menu bar tray icon
+
+**Sync**
+- Google Sign-in via Firebase + Supabase
+- Search history, review cards, and review logs sync across devices
+- Works offline — syncs when connectivity resumes
+
+**Platforms:** macOS, iOS, Android
+
+## Prerequisites
+
+Place `oald10.db` in `app/assets/` before building:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install genanki flask opencc-python-reimplemented
-```
-
-Installed macOS dictionaries are typically at `~/Library/Dictionaries/`. Symlink or copy the `.dictionary` folder as `oxford.dictionary` in the project root.
-
-## Quick Start
-
-```bash
-# Build the database (~50-80 MB, ~5 minutes)
-python build_db.py
-
-# Browse the dictionary
-python app.py --port 8000
-
-# Look up a word (renders raw HTML in browser)
-python lookup_word.py run
-
-# Generate Anki decks (see docs/anki.md)
-python anki/create_deck.py --5000
-
-# Export and upload to Cloudflare R2
-python scripts/export_for_r2.py
-./scripts/upload_to_r2.sh
-
-# Flutter app (see app/README.md)
+# Option A: Copy from project root (after running build_db.py)
 cp oald10.db app/assets/oald10.db
-cd app && flutter run
+
+# Option B: Download from R2
+curl -o app/assets/oald10.db \
+  https://r2.deckionary.com/db/oald10.db
 ```
+
+The file is ~93 MB and not checked into git.
+
+## Build & Run
+
+```bash
+cd app
+flutter pub get
+flutter run --dart-define-from-file=env.json
+```
+
+Without `env.json`, the app runs in local-only mode (no sync).
+
+## Firebase & Supabase Setup
+
+Required only for cross-device sync.
+
+### Firebase
+
+```bash
+dart pub global activate flutterfire_cli
+cd app
+flutterfire configure
+```
+
+This generates `lib/firebase_options.dart` (gitignored). Enable **Authentication > Google** in the [Firebase Console](https://console.firebase.google.com).
+
+### Google Sign-In (macOS)
+
+Create an **iOS OAuth client ID** in [Google Cloud Console > Credentials](https://console.cloud.google.com/apis/credentials) with bundle ID `com.deckionary.deckionary`. Add the client ID to `macos/Runner/Info.plist`:
+
+```xml
+<key>GIDClientID</key>
+<string>YOUR_CLIENT_ID.apps.googleusercontent.com</string>
+<key>CFBundleURLTypes</key>
+<array>
+  <dict>
+    <key>CFBundleURLSchemes</key>
+    <array>
+      <string>com.googleusercontent.apps.YOUR_CLIENT_ID</string>
+    </array>
+  </dict>
+</array>
+```
+
+### Supabase
+
+```bash
+cp env.example.json env.json
+```
+
+Fill in `SUPABASE_URL` and `SUPABASE_ANON_KEY` from **Supabase Dashboard > Settings > API**.
+
+Enable **Firebase** as a third-party auth provider in **Supabase Dashboard > Auth > Third-party providers**.
+
+Apply migrations:
+
+```bash
+supabase link --project-ref <your-project-ref>
+supabase db push
+```
+
+### macOS Signing
+
+```bash
+open macos/Runner.xcodeproj
+```
+
+In Xcode: **Runner target > Signing & Capabilities > Automatically manage signing > select Team**. Same for **RunnerTests**.
+
+## Python Tools
+
+The repo also includes Python tools for building the dictionary database, generating Anki decks, and exporting audio to Cloudflare R2.
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install genanki flask opencc-python-reimplemented
+
+python build_db.py          # Build oald10.db from macOS dictionary bundle
+python app.py --port 8000   # Web dictionary browser
+python anki/create_deck.py --5000  # Generate Anki deck
+```
+
+See `docs/` for detailed guides on the database schema, R2 export, and Anki generation.
 
 ## Project Structure
 
 ```
-.
-├── app.py                  # Flask web dictionary
-├── build_db.py             # CLI to build oald10.db
-├── lookup_word.py          # Render raw HTML entry in browser
-├── anki/
-│   ├── create_deck.py      # Anki deck generator
-│   ├── clean_csv.py        # Clean custom-words.csv
-│   ├── oxford-5000.csv     # Oxford 5000 word list
-│   └── custom-words.csv    # Custom word list
-├── db/
-│   ├── schema.py           # SQLite schema (15 tables)
-│   ├── models.py           # Dataclasses for parsed data
-│   ├── parser.py           # HTML parser (regex-based)
-│   ├── importer.py         # Build pipeline: Body.data → SQLite
-│   └── query.py            # Read API: lookup, search
-├── scripts/
-│   ├── export_for_r2.py    # Export HTML + audio filelist for R2
-│   └── upload_to_r2.sh     # Upload to Cloudflare R2 via rclone
-├── app/                    # Flutter dictionary app (see app/README.md)
-├── docs/
-│   ├── database.md         # Schema, data source, build pipeline
-│   ├── r2-export.md        # Cloudflare R2 export guide
-│   └── anki.md             # Anki deck generation guide
-├── templates/
-│   └── index.html          # Dictionary frontend
-└── oxford.dictionary/      # macOS dictionary bundle (not in repo)
+app/                    # Flutter app
+  lib/
+    features/
+      dictionary/       # Search, autocomplete, entry display
+      review/           # FSRS spaced repetition
+      settings/         # App configuration
+    core/
+      database/         # Drift ORM, DAOs
+      audio/            # Pronunciation playback & caching
+      sync/             # Supabase sync service
+  macos/                # macOS-specific (hotkey, tray, window)
+  ios/                  # iOS target
+  android/              # Android target
+
+db/                     # Python: SQLite schema, parser, importer
+anki/                   # Python: Anki deck generator
+scripts/                # Python: R2 export & upload
+docs/                   # Guides
 ```
