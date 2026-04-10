@@ -41,5 +41,20 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['MACOSX_DEPLOYMENT_TARGET'] = '10.15'
     end
+
+    # Suppress warnings from third-party pods
+    if target.name == 'HotKey'
+      target.build_configurations.each do |config|
+        config.build_settings['SWIFT_FLAGS'] = '$(inherited) -suppress-warnings'
+      end
+    end
+    if target.name == 'firebase_core'
+      target.build_configurations.each do |config|
+        config.build_settings['GCC_WARN_ABOUT_INCOMPATIBLE_POINTER_TYPES'] = 'NO'
+      end
+    end
+    target.build_configurations.each do |config|
+      config.build_settings['LIBTOOL_OTHER_FLAGS'] = '$(inherited) -no_warning_for_no_symbols'
+    end
   end
 end
