@@ -330,9 +330,12 @@ class EntryCard extends ConsumerWidget {
         spacing: 4,
         children: byType.entries.expand((e) => [
           Text('${_xrefLabels[e.key] ?? e.key} ', style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey, fontSize: 13)),
-          ...e.value.map((w) => GestureDetector(
-            onTap: () => onWordTap?.call(w),
-            child: Text('$w ', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 13, decoration: TextDecoration.underline)),
+          ...e.value.map((w) => MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => onWordTap?.call(w),
+              child: Text('$w ', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 13, decoration: TextDecoration.underline)),
+            ),
           )),
         ]).toList(),
       ),

@@ -53,7 +53,7 @@ class _TappableTextState extends State<TappableText> {
         final recognizer = TapGestureRecognizer()
           ..onTap = () => widget.onWordTap(_cleanWord(word));
         _recognizers.add(recognizer);
-        spans.add(TextSpan(text: word, recognizer: recognizer));
+        spans.add(TextSpan(text: word, recognizer: recognizer, mouseCursor: SystemMouseCursors.click));
       } else {
         spans.add(TextSpan(text: word ?? other ?? ''));
       }
