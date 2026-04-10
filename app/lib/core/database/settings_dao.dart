@@ -53,4 +53,20 @@ class SettingsDao {
 
   Future<String?> getReviewFilter() async => await get('review_filter');
   Future<void> setReviewFilter(String json) => set('review_filter', json);
+
+  // ── Quick Search settings (macOS) ──────────────────────────────────────
+
+  /// Stored as JSON: {"keyCode": 458759, "modifiers": ["meta", "shift"]}
+  /// Default: Cmd+Shift+D
+  static const _defaultHotKey = '{"keyCode":458759,"modifiers":["meta","shift"]}';
+
+  Future<String> getQuickSearchHotKey() async =>
+      await get('quick_search_hotkey') ?? _defaultHotKey;
+  Future<void> setQuickSearchHotKey(String json) =>
+      set('quick_search_hotkey', json);
+
+  Future<bool> getShowTrayIcon() async =>
+      (await get('show_tray_icon')) != 'false';
+  Future<void> setShowTrayIcon(bool enabled) =>
+      set('show_tray_icon', enabled.toString());
 }
