@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
+import '../../../app.dart' show searchBarFocusTrigger;
 import '../../../core/audio/audio_provider.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
@@ -161,6 +164,11 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     final query = ref.watch(searchQueryProvider);
     final suggestions = ref.watch(autocompleteSuggestionsProvider);
 
+    // Focus search bar when global hotkey fires
+    ref.listen(searchBarFocusTrigger, (prev, next) {
+      _focusSearchBar();
+    });
+
     ref.listen(searchResultsProvider, (prev, next) {
       next.whenData((entries) {
         final q = ref.read(searchQueryProvider);
@@ -173,7 +181,15 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
       autofocus: true,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
-          _focusSearchBar();
+          if (_controller.text.isNotEmpty) {
+            // Clear search first
+            _controller.clear();
+            ref.read(searchQueryProvider.notifier).set('');
+            _focusSearchBar();
+          } else if (Platform.isMacOS) {
+            // Empty search on macOS: hide window
+            windowManager.hide();
+          }
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
