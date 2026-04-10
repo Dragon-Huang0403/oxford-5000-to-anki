@@ -115,6 +115,8 @@ class DeckionaryApp extends ConsumerStatefulWidget {
 
 class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
     with WidgetsBindingObserver, WindowListener, TrayListener {
+  static const _windowChannel = MethodChannel('com.deckionary/window');
+
   int _currentTab = 0;
   HotKey? _registeredHotKey;
 
@@ -178,18 +180,17 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
   Future<void> _toggleWindow() async {
     final isVisible = await windowManager.isVisible();
     if (isVisible) {
-      await windowManager.setAlwaysOnTop(false);
+      await _windowChannel.invokeMethod('resetLevel');
       await windowManager.hide();
     } else {
-      // Show first, then move — position only sticks after window is visible
-      await windowManager.setAlwaysOnTop(true);
+      // Jump to user's current Space, then show
+      await _windowChannel.invokeMethod('prepareForShow');
+      await _positionOnMouseDisplay();
       await windowManager.show();
       await windowManager.focus();
-      // Position on the display where the mouse cursor is
-      await _moveToMouseDisplay();
       setState(() => _currentTab = 0);
 
-      // Check clipboard for a word to auto-search
+      // Clipboard auto-search
       String? clipText;
       try {
         final data = await Clipboard.getData(Clipboard.kTextPlain);
@@ -203,50 +204,40 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
     }
   }
 
-  Future<void> _moveToMouseDisplay() async {
+  Future<void> _positionOnMouseDisplay() async {
     try {
       final cursorPos = await screenRetriever.getCursorScreenPoint();
       final displays = await screenRetriever.getAllDisplays();
 
-      // Find which display contains the cursor
       Display? targetDisplay;
       for (final display in displays) {
-        final bounds = display.visiblePosition != null && display.visibleSize != null
-            ? Rect.fromLTWH(
-                display.visiblePosition!.dx,
-                display.visiblePosition!.dy,
-                display.visibleSize!.width,
-                display.visibleSize!.height,
-              )
-            : null;
-        if (bounds != null && bounds.contains(Offset(cursorPos.dx, cursorPos.dy))) {
+        final pos = display.visiblePosition ?? Offset.zero;
+        final sz = display.visibleSize ?? display.size;
+        final bounds = Rect.fromLTWH(pos.dx, pos.dy, sz.width, sz.height);
+        if (bounds.contains(Offset(cursorPos.dx, cursorPos.dy))) {
           targetDisplay = display;
           break;
         }
       }
 
-      if (targetDisplay != null && targetDisplay.visiblePosition != null && targetDisplay.visibleSize != null) {
-        final screenW = targetDisplay.visibleSize!.width;
-        final screenH = targetDisplay.visibleSize!.height;
-
-        // Size: 600px wide, 70% of screen height — enough for search + results
+      if (targetDisplay != null) {
+        final dpos = targetDisplay.visiblePosition ?? Offset.zero;
+        final dsz = targetDisplay.visibleSize ?? targetDisplay.size;
         final winW = 600.0;
-        final winH = (screenH * 0.7).clamp(400.0, 900.0);
+        final winH = (dsz.height * 0.7).clamp(400.0, 900.0);
+        final x = dpos.dx + (dsz.width - winW) / 2;
+        final y = dpos.dy + (dsz.height - winH) * 0.35;
         await windowManager.setSize(Size(winW, winH));
-
-        // Center horizontally, position slightly above center vertically (like Spotlight)
-        final x = targetDisplay.visiblePosition!.dx + (screenW - winW) / 2;
-        final y = targetDisplay.visiblePosition!.dy + (screenH - winH) * 0.35;
         await windowManager.setPosition(Offset(x, y));
       }
     } catch (e) {
-      debugPrint('Could not position window on mouse display: $e');
+      debugPrint('Could not position window: $e');
     }
   }
 
   @override
   void onWindowClose() async {
-    await windowManager.setAlwaysOnTop(false);
+    await _windowChannel.invokeMethod('resetLevel');
     await windowManager.hide();
   }
 
