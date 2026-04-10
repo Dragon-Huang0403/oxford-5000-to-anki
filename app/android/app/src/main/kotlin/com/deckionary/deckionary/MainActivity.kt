@@ -1,4 +1,4 @@
-package com.oxforddict.oxford_dictionary
+package com.deckionary.deckionary
 
 import io.flutter.embedding.android.FlutterActivity
 

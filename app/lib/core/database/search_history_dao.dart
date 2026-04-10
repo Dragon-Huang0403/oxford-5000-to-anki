@@ -1,45 +1,25 @@
-import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'app_database.dart';
 
 const _uuid = Uuid();
 
-/// Data access for search history
+/// Data access for search history (local only — sync is handled by SyncService)
 class SearchHistoryDao {
   final UserDatabase _db;
 
   SearchHistoryDao(this._db);
 
-  /// Add a search to history and enqueue for sync.
+  /// Add a search to history. Synced=0 until SyncService pushes it.
   Future<void> addSearch(String query, {int? entryId, String? headword}) async {
-    final recordUuid = _uuid.v4();
-    final now = DateTime.now().toIso8601String();
-
     await _db.into(_db.searchHistory).insert(
       SearchHistoryCompanion.insert(
         query: query,
         entryId: Value(entryId),
         headword: Value(headword),
       ).copyWith(
-        uuid: Value(recordUuid),
-        searchedAt: Value(now),
-      ),
-    );
-
-    // Enqueue for sync
-    await _db.into(_db.syncQueue).insert(
-      SyncQueueCompanion.insert(
-        tableName_: 'search_history',
-        recordId: recordUuid,
-        operation: 'INSERT',
-        payload: jsonEncode({
-          'id': recordUuid,
-          'query': query,
-          'entry_id': entryId,
-          'headword': headword,
-          'searched_at': now,
-        }),
+        uuid: Value(_uuid.v4()),
+        searchedAt: Value(DateTime.now().toIso8601String()),
       ),
     );
 
@@ -103,27 +83,11 @@ class SearchHistoryDao {
     );
   }
 
-  /// Delete a single history entry by its local ID and enqueue for sync.
+  /// Delete a single history entry by its local ID.
   Future<void> deleteById(int id) async {
-    // Get uuid before deleting (for sync)
-    final rows = await (_db.select(_db.searchHistory)
-      ..where((t) => t.id.equals(id))
-    ).get();
-
     await (_db.delete(_db.searchHistory)
       ..where((t) => t.id.equals(id))
     ).go();
-
-    if (rows.isNotEmpty && rows.first.uuid.isNotEmpty) {
-      await _db.into(_db.syncQueue).insert(
-        SyncQueueCompanion.insert(
-          tableName_: 'search_history',
-          recordId: rows.first.uuid,
-          operation: 'DELETE',
-          payload: '{}',
-        ),
-      );
-    }
   }
 
   /// Delete all history entries for a given headword (or query if no headword)

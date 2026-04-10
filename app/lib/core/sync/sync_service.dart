@@ -1,10 +1,10 @@
-import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/app_database.dart';
 
-/// Generic sync service using outbox pattern.
-/// Reads from local SyncQueue, pushes to Supabase, pulls remote changes.
+/// Sync service for search history.
+/// Pushes immediately after each search, pulls on app resume.
 class SyncService {
   final UserDatabase _db;
   final SupabaseClient _supabase;
@@ -15,34 +15,65 @@ class SyncService {
 
   String? get _userId => _supabase.auth.currentUser?.id;
 
-  /// Push unsynced local changes to Supabase.
-  Future<int> pushChanges() async {
+  /// Push the most recent unsynced row immediately (fire-and-forget after search).
+  Future<void> pushLatestSearch() async {
+    if (_userId == null) return;
+    try {
+      final rows = await (_db.select(_db.searchHistory)
+            ..where((t) => t.synced.equals(0))
+            ..orderBy([(t) => OrderingTerm.desc(t.searchedAt)])
+            ..limit(1))
+          .get();
+      if (rows.isEmpty || rows.first.uuid.isEmpty) return;
+
+      final row = rows.first;
+      await _supabase.from('search_history').upsert({
+        'id': row.uuid,
+        'user_id': _userId,
+        'query': row.query,
+        'entry_id': row.entryId,
+        'headword': row.headword,
+        'searched_at': row.searchedAt,
+      });
+
+      await (_db.update(_db.searchHistory)..where((t) => t.id.equals(row.id)))
+          .write(const SearchHistoryCompanion(synced: Value(1)));
+    } catch (e) {
+      debugPrint('Push search failed (will retry): $e');
+    }
+  }
+
+  /// Push all local rows with synced=0 to Supabase.
+  /// Preserves original searched_at timestamps for correct cross-device ordering.
+  Future<int> pushAllUnsynced() async {
     if (_userId == null) return 0;
 
-    final unsynced = await (_db.select(_db.syncQueue)
+    final unsynced = await (_db.select(_db.searchHistory)
           ..where((t) => t.synced.equals(0))
-          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+          ..orderBy([(t) => OrderingTerm.asc(t.searchedAt)]))
         .get();
 
     if (unsynced.isEmpty) return 0;
 
     var pushed = 0;
-    for (final entry in unsynced) {
+    for (final row in unsynced) {
+      if (row.uuid.isEmpty) continue;
       try {
-        final payload = jsonDecode(entry.payload) as Map<String, dynamic>;
-        payload['user_id'] = _userId;
+        await _supabase.from('search_history').upsert({
+          'id': row.uuid,
+          'user_id': _userId,
+          'query': row.query,
+          'entry_id': row.entryId,
+          'headword': row.headword,
+          'searched_at': row.searchedAt,
+        });
 
-        if (entry.operation == 'INSERT') {
-          await _supabase.from(entry.tableName_).upsert(payload);
-        } else if (entry.operation == 'DELETE') {
-          await _supabase.from(entry.tableName_).delete().eq('id', entry.recordId);
-        }
-
-        await (_db.update(_db.syncQueue)..where((t) => t.id.equals(entry.id)))
-            .write(const SyncQueueCompanion(synced: Value(1)));
+        // Mark as synced
+        await (_db.update(_db.searchHistory)..where((t) => t.id.equals(row.id)))
+            .write(const SearchHistoryCompanion(synced: Value(1)));
         pushed++;
       } catch (e) {
-        // Skip failed entries, retry next sync cycle
+        // Skip failed rows, retry next sync cycle
         continue;
       }
     }
@@ -86,7 +117,7 @@ class SyncService {
           ).copyWith(
             uuid: Value(uuid),
             searchedAt: Value(row['searched_at'] as String),
-            synced: const Value(1),
+            synced: const Value(1), // came from remote, already synced
           ),
         );
         pulled++;
@@ -101,9 +132,9 @@ class SyncService {
     return pulled;
   }
 
-  /// Full sync: push local changes, then pull remote.
+  /// Full sync: push unsynced local rows, then pull remote changes.
   Future<({int pushed, int pulled})> syncSearchHistory() async {
-    final pushed = await pushChanges();
+    final pushed = await pushAllUnsynced();
     final pulled = await pullSearchHistory();
     return (pushed: pushed, pulled: pulled);
   }

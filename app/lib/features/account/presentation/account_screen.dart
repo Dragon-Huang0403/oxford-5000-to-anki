@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/sync/sync_provider.dart';
 import '../../../main.dart';
@@ -12,18 +13,25 @@ class AccountScreen extends ConsumerStatefulWidget {
 }
 
 class _AccountScreenState extends ConsumerState<AccountScreen> {
+  bool _signingIn = false;
   bool _syncing = false;
   String? _syncResult;
 
   Future<void> _signIn() async {
+    if (_signingIn) return;
+    setState(() => _signingIn = true);
     try {
       await ref.read(authServiceProvider)?.signInWithGoogle();
+      // Auto-sync on first sign-in: push all existing local history
+      if (mounted) _syncNow();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Sign in failed: $e')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _signingIn = false);
     }
   }
 
@@ -123,22 +131,32 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   ),
                   const SizedBox(height: 24),
                   FilledButton.icon(
-                    onPressed: _signIn,
-                    icon: const Icon(Icons.login),
-                    label: const Text('Sign in with Google'),
+                    onPressed: _signingIn ? null : _signIn,
+                    icon: _signingIn
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.login),
+                    label: Text(_signingIn ? 'Signing in...' : 'Sign in with Google'),
                   ),
                 ],
               ),
             ),
           ] else ...[
-            ListTile(
-              leading: CircleAvatar(
-                backgroundColor: cs.primaryContainer,
-                child: Icon(Icons.person, color: cs.onPrimaryContainer),
-              ),
-              title: Text(authService?.currentUserId ?? 'Signed in'),
-              subtitle: const Text('Google account'),
-            ),
+            () {
+              final user = Supabase.instance.client.auth.currentUser;
+              final meta = user?.userMetadata;
+              final name = meta?['full_name'] as String? ?? meta?['name'] as String?;
+              final email = user?.email ?? meta?['email'] as String?;
+              final avatar = meta?['avatar_url'] as String? ?? meta?['picture'] as String?;
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: cs.primaryContainer,
+                  backgroundImage: avatar != null ? NetworkImage(avatar) : null,
+                  child: avatar == null ? Icon(Icons.person, color: cs.onPrimaryContainer) : null,
+                ),
+                title: Text(name ?? 'Signed in'),
+                subtitle: Text(email ?? 'Google account'),
+              );
+            }(),
             const Divider(),
             ListTile(
               leading: _syncing

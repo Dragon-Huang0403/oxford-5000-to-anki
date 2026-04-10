@@ -7,6 +7,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
 import '../providers/search_provider.dart';
 import '../providers/search_history_provider.dart';
+import '../../../core/sync/sync_provider.dart';
 import '../../settings/presentation/settings_screen.dart';
 import 'widgets/entry_card.dart';
 
@@ -97,8 +98,6 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
       _committed = true;
       _entryKeys.clear();
     });
-    // Save to search history on every explicit commit
-    ref.read(searchHistoryDaoProvider).addSearch(word, headword: word);
     // Force provider refresh even if same word
     ref.invalidate(searchResultsProvider);
     ref.read(searchQueryProvider.notifier).set(word);
@@ -128,6 +127,19 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     ref.read(audioServiceProvider).playPronunciation(first.pronunciations, dialect: dialect);
   }
 
+  String? _lastSavedHeadword;
+
+  /// Save to history only when results resolve, using the actual headword.
+  void _saveToHistory(List<DictEntry> entries, String query) {
+    if (!_committed || entries.isEmpty) return;
+    final headword = entries.first.headword;
+    if (headword == _lastSavedHeadword) return;
+    _lastSavedHeadword = headword;
+    ref.read(searchHistoryDaoProvider)
+        .addSearch(headword, entryId: entries.first.id, headword: headword)
+        .then((_) => ref.read(syncServiceProvider)?.pushLatestSearch());
+  }
+
   void _scrollToEntry(int index) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -150,7 +162,11 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     final suggestions = ref.watch(autocompleteSuggestionsProvider);
 
     ref.listen(searchResultsProvider, (prev, next) {
-      next.whenData((entries) => _autoPronounce(entries, ref.read(searchQueryProvider)));
+      next.whenData((entries) {
+        final q = ref.read(searchQueryProvider);
+        _autoPronounce(entries, q);
+        _saveToHistory(entries, q);
+      });
     });
 
     return Focus(

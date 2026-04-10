@@ -1,5 +1,5 @@
-name: oxford_dictionary
-description: "OALD10 Dictionary with FSRS Spaced Repetition"
+name: deckionary
+description: "Deckionary — Dictionary with FSRS Spaced Repetition"
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -34,7 +34,6 @@ dependencies:
   # Auth & Sync
   supabase_flutter: any
   firebase_core: any
-  firebase_auth: any
   google_sign_in: any
 
   # Utilities

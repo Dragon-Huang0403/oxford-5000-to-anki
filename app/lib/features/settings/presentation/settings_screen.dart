@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../app.dart';
 import '../../../core/audio/audio_provider.dart';
+import '../../../core/auth/auth_provider.dart';
 import '../../../core/database/database_provider.dart';
-import '../../account/presentation/account_screen.dart';
+import '../../../core/sync/sync_provider.dart';
+import '../../../main.dart';
 
 /// Settings loaded as a future
 final _settingsProvider = FutureProvider<_AppSettings>((ref) async {
@@ -27,18 +30,71 @@ class _AppSettings {
   _AppSettings({required this.dialect, required this.autoPronounce, required this.themeMode});
 }
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _signingIn = false;
+
+  Future<void> _signIn() async {
+    if (_signingIn) return;
+    setState(() => _signingIn = true);
+    try {
+      await ref.read(authServiceProvider)?.signInWithGoogle();
+      // Auto-sync on first sign-in
+      ref.read(syncServiceProvider)?.syncSearchHistory();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sign in failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _signingIn = false);
+    }
+  }
+
+  Future<void> _signOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text('Your local data will be kept.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign out')),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(authServiceProvider)?.signOut();
+      if (mounted) setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settingsAsync = ref.watch(_settingsProvider);
+    final cs = Theme.of(context).colorScheme;
+
+    // Watch auth state to rebuild on sign in/out
+    if (syncEnabled) ref.watch(authStateProvider);
+    final isSignedIn = syncEnabled && (ref.read(authServiceProvider)?.isSignedIn ?? false);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: settingsAsync.when(
         data: (settings) => ListView(
           children: [
+            // Account at top if signed in
+            if (isSignedIn) ...[
+              _buildAccountHeader(cs),
+              const Divider(),
+            ],
             const _SectionHeader('Audio'),
             _DialectTile(settings.dialect, ref),
             _AutoPronounceTile(settings.autoPronounce, ref),
@@ -48,20 +104,59 @@ class SettingsScreen extends ConsumerWidget {
             const Divider(),
             const _SectionHeader('Appearance'),
             _ThemeTile(settings.themeMode, ref),
-            const Divider(),
-            const _SectionHeader('Account'),
-            ListTile(
-              leading: const Icon(Icons.cloud_sync_outlined),
-              title: const Text('Account & Sync'),
-              subtitle: const Text('Sign in to sync across devices'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AccountScreen())),
-            ),
+            // Sign in / Sign out at bottom
+            if (syncEnabled) ...[
+              const Divider(),
+              if (!isSignedIn)
+                _buildSignInButton(cs)
+              else
+                _buildSignOutButton(cs),
+              const SizedBox(height: 32),
+            ],
           ],
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
       ),
+    );
+  }
+
+  Widget _buildAccountHeader(ColorScheme cs) {
+    final user = Supabase.instance.client.auth.currentUser;
+    final meta = user?.userMetadata;
+    final name = meta?['full_name'] as String? ?? meta?['name'] as String?;
+    final email = user?.email ?? meta?['email'] as String?;
+    final avatar = meta?['avatar_url'] as String? ?? meta?['picture'] as String?;
+
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: cs.primaryContainer,
+        backgroundImage: avatar != null ? NetworkImage(avatar) : null,
+        child: avatar == null ? Icon(Icons.person, color: cs.onPrimaryContainer) : null,
+      ),
+      title: Text(name ?? 'Signed in'),
+      subtitle: Text(email ?? 'Google account'),
+    );
+  }
+
+  Widget _buildSignInButton(ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: FilledButton.icon(
+        onPressed: _signingIn ? null : _signIn,
+        icon: _signingIn
+            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.login),
+        label: Text(_signingIn ? 'Signing in...' : 'Sign in with Google to sync'),
+      ),
+    );
+  }
+
+  Widget _buildSignOutButton(ColorScheme cs) {
+    return ListTile(
+      leading: Icon(Icons.logout, color: cs.error),
+      title: Text('Sign out', style: TextStyle(color: cs.error)),
+      onTap: _signOut,
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'firebase_options.dart';
 import 'core/config.dart';
 import 'core/database/database_provider.dart';
 import 'app.dart';
@@ -17,7 +18,7 @@ void main() async {
 
   // Firebase + Supabase init (skip gracefully if not configured)
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     if (supabaseAnonKey.isNotEmpty) {
       await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
       await GoogleSignIn.instance.initialize();

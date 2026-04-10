@@ -51,3 +51,7 @@ assets/oald10.db
 lib/firebase_options.dart
 **/google-services.json
 **/GoogleService-Info.plist
+
+# Environment config (contains Supabase keys etc.)
+env.json
+env.*.json

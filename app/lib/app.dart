@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/database/database_provider.dart';
+import 'core/sync/sync_provider.dart';
 import 'features/dictionary/presentation/dictionary_screen.dart';
 
 /// Reactive theme mode provider
@@ -14,11 +15,37 @@ final themeModeProvider = FutureProvider<ThemeMode>((ref) async {
   };
 });
 
-class OxfordDictionaryApp extends ConsumerWidget {
+class OxfordDictionaryApp extends ConsumerStatefulWidget {
   const OxfordDictionaryApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OxfordDictionaryApp> createState() => _OxfordDictionaryAppState();
+}
+
+class _OxfordDictionaryAppState extends ConsumerState<OxfordDictionaryApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Pull remote changes when app comes to foreground
+      ref.read(syncServiceProvider)?.pullSearchHistory();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider).when(
       data: (mode) => mode,
       loading: () => ThemeMode.system,
@@ -26,7 +53,7 @@ class OxfordDictionaryApp extends ConsumerWidget {
     );
 
     return MaterialApp(
-      title: 'Oxford Dictionary',
+      title: 'Deckionary',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
