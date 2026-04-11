@@ -1,7 +1,7 @@
 import Cocoa
 import FlutterMacOS
 
-class MainFlutterWindow: NSWindow {
+class MainFlutterWindow: NSPanel {
   var windowChannel: FlutterMethodChannel?
 
   override func awakeFromNib() {
@@ -10,7 +10,12 @@ class MainFlutterWindow: NSWindow {
     self.contentViewController = flutterViewController
     self.setFrame(windowFrame, display: true)
 
-    self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+    // NSPanel config for fullscreen overlay (Spotlight/Raycast behavior)
+    self.isFloatingPanel = true
+    self.becomesKeyOnlyIfNeeded = false
+    self.hidesOnDeactivate = false
+    self.styleMask.insert(.nonactivatingPanel)
+    self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
 
     windowChannel = FlutterMethodChannel(
       name: "com.deckionary/window",
@@ -19,16 +24,16 @@ class MainFlutterWindow: NSWindow {
     windowChannel!.setMethodCallHandler { [weak self] (call, result) in
       switch call.method {
       case "prepareForShow":
-        // Temporarily switch to moveToActiveSpace to jump to user's current Space
-        self?.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
-        self?.level = .floating
-        // Reset after the Space transition completes
+        self?.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .transient]
+        self?.level = .popUpMenu
+        NSApp.activate(ignoringOtherApps: true)
+        self?.makeKey()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-          self?.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+          self?.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         }
         result(nil)
       case "resetLevel":
-        self?.level = .normal
+        self?.level = .floating
         result(nil)
       default:
         result(FlutterMethodNotImplemented)
