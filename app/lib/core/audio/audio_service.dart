@@ -42,10 +42,12 @@ class AudioDb {
 
   Future<Uint8List?> get(String filename) async {
     await init();
-    final rows = await _db.customSelect(
-      'SELECT data FROM audio_files WHERE filename = ?',
-      variables: [Variable.withString(filename)],
-    ).get();
+    final rows = await _db
+        .customSelect(
+          'SELECT data FROM audio_files WHERE filename = ?',
+          variables: [Variable.withString(filename)],
+        )
+        .get();
     if (rows.isEmpty) return null;
     return rows.first.data['data'] as Uint8List;
   }
@@ -74,8 +76,14 @@ class AudioDb {
 
   Future<({int fileCount, int sizeBytes})> stats() async {
     await init();
-    final countRow = await _db.customSelect('SELECT COUNT(*) as c FROM audio_files').getSingle();
-    final sizeRow = await _db.customSelect('SELECT COALESCE(SUM(LENGTH(data)), 0) as s FROM audio_files').getSingle();
+    final countRow = await _db
+        .customSelect('SELECT COUNT(*) as c FROM audio_files')
+        .getSingle();
+    final sizeRow = await _db
+        .customSelect(
+          'SELECT COALESCE(SUM(LENGTH(data)), 0) as s FROM audio_files',
+        )
+        .getSingle();
     return (
       fileCount: countRow.data['c'] as int,
       sizeBytes: sizeRow.data['s'] as int,
@@ -84,15 +92,17 @@ class AudioDb {
 
   Future<Set<String>> getCachedFilenames() async {
     await init();
-    final rows =
-        await _db.customSelect('SELECT filename FROM audio_files').get();
+    final rows = await _db
+        .customSelect('SELECT filename FROM audio_files')
+        .get();
     return rows.map((r) => r.data['filename'] as String).toSet();
   }
 
   Future<Set<String>> getCompletedPacks() async {
     await init();
-    final rows =
-        await _db.customSelect('SELECT name FROM completed_packs').get();
+    final rows = await _db
+        .customSelect('SELECT name FROM completed_packs')
+        .get();
     return rows.map((r) => r.data['name'] as String).toSet();
   }
 
@@ -109,12 +119,12 @@ class AudioDb {
   /// meta hasn't been stored yet (upgrade path).
   Future<bool> isDownloadComplete() async {
     await init();
-    final totalRow = await _db.customSelect(
-      "SELECT value FROM meta WHERE key = 'total_packs'",
-    ).get();
-    final completedRow = await _db.customSelect(
-      'SELECT COUNT(*) as c FROM completed_packs',
-    ).getSingle();
+    final totalRow = await _db
+        .customSelect("SELECT value FROM meta WHERE key = 'total_packs'")
+        .get();
+    final completedRow = await _db
+        .customSelect('SELECT COUNT(*) as c FROM completed_packs')
+        .getSingle();
     final completedCount = completedRow.data['c'] as int;
     if (totalRow.isEmpty) {
       // No manifest stored yet — if we have completed packs, assume complete
@@ -181,7 +191,9 @@ class AudioService {
           data = response.bodyBytes;
           await audioDB.put(filename, data);
         } else {
-          debugPrint('AudioService: server returned ${response.statusCode} for $filename');
+          debugPrint(
+            'AudioService: server returned ${response.statusCode} for $filename',
+          );
           return;
         }
       }
@@ -203,7 +215,8 @@ class AudioService {
     String dialect = 'us',
   }) async {
     if (pronunciations.isEmpty) return;
-    final pron = pronunciations.where((p) => p['dialect'] == dialect).firstOrNull ??
+    final pron =
+        pronunciations.where((p) => p['dialect'] == dialect).firstOrNull ??
         pronunciations.first;
     final audioFile = pron['audio_file'] as String? ?? '';
     if (audioFile.isNotEmpty) await play(audioFile);
@@ -213,28 +226,33 @@ class AudioService {
   /// Fetches manifest, skips completed packs, downloads remaining in parallel,
   /// extracts tar contents into audio.db.
   Future<void> downloadAll({
-    required void Function(int completedPacks, int totalPacks,
-            int filesExtracted, int bytesDownloaded)
-        onProgress,
+    required void Function(
+      int completedPacks,
+      int totalPacks,
+      int filesExtracted,
+      int bytesDownloaded,
+    )
+    onProgress,
   }) async {
     const packsUrl = '$r2BaseUrl/audio-packs';
     final client = http.Client();
 
     try {
       // Fetch manifest
-      final manifestRes =
-          await client.get(Uri.parse('$packsUrl/manifest.json'));
+      final manifestRes = await client.get(
+        Uri.parse('$packsUrl/manifest.json'),
+      );
       if (manifestRes.statusCode != 200) {
-        throw Exception(
-            'Failed to fetch manifest: ${manifestRes.statusCode}');
+        throw Exception('Failed to fetch manifest: ${manifestRes.statusCode}');
       }
-      final manifest =
-          (jsonDecode(manifestRes.body) as List).cast<Map<String, dynamic>>();
+      final manifest = (jsonDecode(manifestRes.body) as List)
+          .cast<Map<String, dynamic>>();
 
       await audioDB.setMeta('total_packs', manifest.length.toString());
       final completed = await audioDB.getCompletedPacks();
-      final remaining =
-          manifest.where((p) => !completed.contains(p['name'])).toList();
+      final remaining = manifest
+          .where((p) => !completed.contains(p['name']))
+          .toList();
 
       if (remaining.isEmpty) {
         onProgress(manifest.length, manifest.length, 0, 0);
@@ -252,8 +270,7 @@ class AudioService {
 
         final futures = batch.map((pack) async {
           final packName = pack['name'] as String;
-          final res =
-              await client.get(Uri.parse('$packsUrl/$packName'));
+          final res = await client.get(Uri.parse('$packsUrl/$packName'));
           if (res.statusCode != 200) {
             debugPrint('AudioService: pack $packName failed ${res.statusCode}');
             return (0, 0);
@@ -270,7 +287,11 @@ class AudioService {
           bytesDownloaded += bytes;
         }
         onProgress(
-            packsCompleted, manifest.length, filesExtracted, bytesDownloaded);
+          packsCompleted,
+          manifest.length,
+          filesExtracted,
+          bytesDownloaded,
+        );
       }
     } finally {
       client.close();
@@ -290,22 +311,27 @@ class AudioService {
       final nameBytes = header.sublist(0, 100);
       var nameEnd = nameBytes.indexOf(0);
       if (nameEnd == -1) nameEnd = 100;
-      final filename =
-          String.fromCharCodes(nameBytes.sublist(0, nameEnd)).trim();
+      final filename = String.fromCharCodes(
+        nameBytes.sublist(0, nameEnd),
+      ).trim();
 
       // File size: bytes 124-136, octal
-      final sizeStr = String.fromCharCodes(header.sublist(124, 136))
-          .replaceAll(RegExp(r'[\x00 ]'), '');
-      final fileSize =
-          sizeStr.isNotEmpty ? int.tryParse(sizeStr, radix: 8) ?? 0 : 0;
+      final sizeStr = String.fromCharCodes(
+        header.sublist(124, 136),
+      ).replaceAll(RegExp(r'[\x00 ]'), '');
+      final fileSize = sizeStr.isNotEmpty
+          ? int.tryParse(sizeStr, radix: 8) ?? 0
+          : 0;
 
       pos += 512;
 
       if (filename.isNotEmpty &&
           fileSize > 0 &&
           pos + fileSize <= tarBytes.length) {
-        files.add(
-            (filename, Uint8List.sublistView(tarBytes, pos, pos + fileSize)));
+        files.add((
+          filename,
+          Uint8List.sublistView(tarBytes, pos, pos + fileSize),
+        ));
       }
 
       // Advance to next 512-byte boundary

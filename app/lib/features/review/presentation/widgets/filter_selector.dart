@@ -14,9 +14,7 @@ class FilterSelector extends ConsumerStatefulWidget {
   static Future<void> show(BuildContext context) {
     return showDialog(
       context: context,
-      builder: (_) => const Dialog(
-        child: FilterSelector(),
-      ),
+      builder: (_) => const Dialog(child: FilterSelector()),
     );
   }
 }
@@ -96,18 +94,18 @@ class _FilterSelectorState extends ConsumerState<FilterSelector> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            Text(
-              'Study Words',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            Text('Study Words', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
 
             // CEFR level chips
-            Text('CEFR Level',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: cs.primary)),
+            Text(
+              'CEFR Level',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: cs.primary,
+              ),
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -126,11 +124,14 @@ class _FilterSelectorState extends ConsumerState<FilterSelector> {
             const SizedBox(height: 16),
 
             // Oxford list toggles
-            Text('Oxford Word Lists',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: cs.primary)),
+            Text(
+              'Oxford Word Lists',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: cs.primary,
+              ),
+            ),
             const SizedBox(height: 4),
             SwitchListTile(
               title: const Text('Oxford 3000'),
@@ -169,10 +170,7 @@ class _FilterSelectorState extends ConsumerState<FilterSelector> {
                   child: const Text('Cancel'),
                 ),
                 const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _save,
-                  child: const Text('Save'),
-                ),
+                FilledButton(onPressed: _save, child: const Text('Save')),
               ],
             ),
           ],

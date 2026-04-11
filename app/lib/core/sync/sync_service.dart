@@ -10,8 +10,8 @@ class SyncService {
   final SupabaseClient _supabase;
 
   SyncService({required UserDatabase db, required SupabaseClient supabase})
-      : _db = db,
-        _supabase = supabase;
+    : _db = db,
+      _supabase = supabase;
 
   String? get _userId => _supabase.auth.currentUser?.id;
 
@@ -19,11 +19,12 @@ class SyncService {
   Future<void> pushLatestSearch() async {
     if (_userId == null) return;
     try {
-      final rows = await (_db.select(_db.searchHistory)
-            ..where((t) => t.synced.equals(0))
-            ..orderBy([(t) => OrderingTerm.desc(t.searchedAt)])
-            ..limit(1))
-          .get();
+      final rows =
+          await (_db.select(_db.searchHistory)
+                ..where((t) => t.synced.equals(0))
+                ..orderBy([(t) => OrderingTerm.desc(t.searchedAt)])
+                ..limit(1))
+              .get();
       if (rows.isEmpty || rows.first.uuid.isEmpty) return;
 
       final row = rows.first;
@@ -49,10 +50,11 @@ class SyncService {
   Future<int> pushAllUnsynced() async {
     if (_userId == null) return 0;
 
-    final unsynced = await (_db.select(_db.searchHistory)
-          ..where((t) => t.synced.equals(0))
-          ..orderBy([(t) => OrderingTerm.asc(t.searchedAt)]))
-        .get();
+    final unsynced =
+        await (_db.select(_db.searchHistory)
+              ..where((t) => t.synced.equals(0))
+              ..orderBy([(t) => OrderingTerm.asc(t.searchedAt)]))
+            .get();
 
     if (unsynced.isEmpty) return 0;
 
@@ -104,32 +106,39 @@ class SyncService {
     for (final row in rows) {
       // Check if we already have this record locally (by uuid)
       final uuid = row['id'] as String;
-      final existing = await _db.customSelect(
-        'SELECT id FROM search_history WHERE uuid = ?',
-        variables: [Variable.withString(uuid)],
-        readsFrom: {_db.searchHistory},
-      ).get();
+      final existing = await _db
+          .customSelect(
+            'SELECT id FROM search_history WHERE uuid = ?',
+            variables: [Variable.withString(uuid)],
+            readsFrom: {_db.searchHistory},
+          )
+          .get();
 
       if (existing.isEmpty) {
-        await _db.into(_db.searchHistory).insert(
-          SearchHistoryCompanion.insert(
-            query: row['query'] as String,
-            entryId: Value(row['entry_id'] as int?),
-            headword: Value(row['headword'] as String?),
-          ).copyWith(
-            uuid: Value(uuid),
-            pos: Value(row['pos'] as String? ?? ''),
-            searchedAt: Value(row['searched_at'] as String),
-            synced: const Value(1), // came from remote, already synced
-          ),
-        );
+        await _db
+            .into(_db.searchHistory)
+            .insert(
+              SearchHistoryCompanion.insert(
+                query: row['query'] as String,
+                entryId: Value(row['entry_id'] as int?),
+                headword: Value(row['headword'] as String?),
+              ).copyWith(
+                uuid: Value(uuid),
+                pos: Value(row['pos'] as String? ?? ''),
+                searchedAt: Value(row['searched_at'] as String),
+                synced: const Value(1), // came from remote, already synced
+              ),
+            );
         pulled++;
       }
     }
 
     // Update last sync timestamp
     if (rows.isNotEmpty) {
-      await _setLastSyncAt('search_history', rows.first['searched_at'] as String);
+      await _setLastSyncAt(
+        'search_history',
+        rows.first['searched_at'] as String,
+      );
     }
 
     return pulled;
@@ -148,11 +157,13 @@ class SyncService {
   Future<void> pushLatestReviewCard(String cardId) async {
     if (_userId == null) return;
     try {
-      final rows = await _db.customSelect(
-        'SELECT * FROM review_cards WHERE id = ?',
-        variables: [Variable.withString(cardId)],
-        readsFrom: {_db.reviewCards},
-      ).get();
+      final rows = await _db
+          .customSelect(
+            'SELECT * FROM review_cards WHERE id = ?',
+            variables: [Variable.withString(cardId)],
+            readsFrom: {_db.reviewCards},
+          )
+          .get();
       if (rows.isEmpty) return;
 
       final row = rows.first.data;
@@ -190,11 +201,13 @@ class SyncService {
   Future<void> pushLatestReviewLog(String logId) async {
     if (_userId == null) return;
     try {
-      final rows = await _db.customSelect(
-        'SELECT * FROM review_logs WHERE id = ?',
-        variables: [Variable.withString(logId)],
-        readsFrom: {_db.reviewLogs},
-      ).get();
+      final rows = await _db
+          .customSelect(
+            'SELECT * FROM review_logs WHERE id = ?',
+            variables: [Variable.withString(logId)],
+            readsFrom: {_db.reviewLogs},
+          )
+          .get();
       if (rows.isEmpty) return;
 
       final row = rows.first.data;
@@ -229,10 +242,12 @@ class SyncService {
   Future<int> pushAllUnsyncedReviewCards() async {
     if (_userId == null) return 0;
 
-    final unsynced = await _db.customSelect(
-      'SELECT * FROM review_cards WHERE synced = 0',
-      readsFrom: {_db.reviewCards},
-    ).get();
+    final unsynced = await _db
+        .customSelect(
+          'SELECT * FROM review_cards WHERE synced = 0',
+          readsFrom: {_db.reviewCards},
+        )
+        .get();
     if (unsynced.isEmpty) return 0;
 
     var pushed = 0;
@@ -276,10 +291,12 @@ class SyncService {
   Future<int> pushAllUnsyncedReviewLogs() async {
     if (_userId == null) return 0;
 
-    final unsynced = await _db.customSelect(
-      'SELECT * FROM review_logs WHERE synced = 0',
-      readsFrom: {_db.reviewLogs},
-    ).get();
+    final unsynced = await _db
+        .customSelect(
+          'SELECT * FROM review_logs WHERE synced = 0',
+          readsFrom: {_db.reviewLogs},
+        )
+        .get();
     if (unsynced.isEmpty) return 0;
 
     var pushed = 0;
@@ -340,11 +357,13 @@ class SyncService {
       final remoteUpdatedAt = row['updated_at'] as String;
 
       // Check if card exists locally
-      final existing = await _db.customSelect(
-        'SELECT id, updated_at FROM review_cards WHERE id = ?',
-        variables: [Variable.withString(id)],
-        readsFrom: {_db.reviewCards},
-      ).get();
+      final existing = await _db
+          .customSelect(
+            'SELECT id, updated_at FROM review_cards WHERE id = ?',
+            variables: [Variable.withString(id)],
+            readsFrom: {_db.reviewCards},
+          )
+          .get();
 
       if (existing.isEmpty) {
         // New card from remote — insert locally
@@ -367,8 +386,14 @@ class SyncService {
             Variable.withInt(row['reps'] as int),
             Variable.withInt(row['lapses'] as int),
             Variable.withInt(row['state'] as int),
-            if (row['step'] != null) Variable.withInt(row['step'] as int) else const Variable(null),
-            if (row['last_review'] != null) Variable.withString(row['last_review'] as String) else const Variable(null),
+            if (row['step'] != null)
+              Variable.withInt(row['step'] as int)
+            else
+              const Variable(null),
+            if (row['last_review'] != null)
+              Variable.withString(row['last_review'] as String)
+            else
+              const Variable(null),
             Variable.withString(row['created_at'] as String),
             Variable.withString(remoteUpdatedAt),
           ],
@@ -398,8 +423,14 @@ class SyncService {
               Variable.withInt(row['reps'] as int),
               Variable.withInt(row['lapses'] as int),
               Variable.withInt(row['state'] as int),
-              if (row['step'] != null) Variable.withInt(row['step'] as int) else const Variable(null),
-              if (row['last_review'] != null) Variable.withString(row['last_review'] as String) else const Variable(null),
+              if (row['step'] != null)
+                Variable.withInt(row['step'] as int)
+              else
+                const Variable(null),
+              if (row['last_review'] != null)
+                Variable.withString(row['last_review'] as String)
+              else
+                const Variable(null),
               Variable.withString(remoteUpdatedAt),
               Variable.withString(id),
             ],
@@ -424,10 +455,7 @@ class SyncService {
 
     final lastSyncAt = await _getLastSyncAt('review_logs');
 
-    var filter = _supabase
-        .from('review_logs')
-        .select()
-        .eq('user_id', _userId!);
+    var filter = _supabase.from('review_logs').select().eq('user_id', _userId!);
 
     if (lastSyncAt != null) {
       filter = filter.gt('reviewed_at', lastSyncAt);
@@ -441,11 +469,13 @@ class SyncService {
       final id = row['id'] as String;
 
       // Skip if already exists locally
-      final existing = await _db.customSelect(
-        'SELECT id FROM review_logs WHERE id = ?',
-        variables: [Variable.withString(id)],
-        readsFrom: {_db.reviewLogs},
-      ).get();
+      final existing = await _db
+          .customSelect(
+            'SELECT id FROM review_logs WHERE id = ?',
+            variables: [Variable.withString(id)],
+            readsFrom: {_db.reviewLogs},
+          )
+          .get();
 
       if (existing.isEmpty) {
         await _db.customInsert(
@@ -463,7 +493,10 @@ class SyncService {
             Variable.withReal((row['difficulty'] as num).toDouble()),
             Variable.withInt(row['elapsed_days'] as int),
             Variable.withInt(row['scheduled_days'] as int),
-            if (row['review_duration'] != null) Variable.withInt(row['review_duration'] as int) else const Variable(null),
+            if (row['review_duration'] != null)
+              Variable.withInt(row['review_duration'] as int)
+            else
+              const Variable(null),
             Variable.withString(row['reviewed_at'] as String),
           ],
           updates: {_db.reviewLogs},
@@ -562,9 +595,9 @@ class SyncService {
 
     final now = DateTime.now().toUtc().toIso8601String();
     for (final key in dirty) {
-      final row = await (_db.select(_db.settings)
-            ..where((t) => t.key.equals(key)))
-          .getSingleOrNull();
+      final row = await (_db.select(
+        _db.settings,
+      )..where((t) => t.key.equals(key))).getSingleOrNull();
       if (row == null) {
         await _removeDirtySetting(key);
         continue;
@@ -609,9 +642,11 @@ class SyncService {
       if (!_syncedSettingKeys.contains(key)) continue;
 
       // Write to local settings (overwrites local value)
-      await _db.into(_db.settings).insertOnConflictUpdate(
-        SettingsCompanion.insert(key: key, value: value),
-      );
+      await _db
+          .into(_db.settings)
+          .insertOnConflictUpdate(
+            SettingsCompanion.insert(key: key, value: value),
+          );
       pulled++;
     }
 
@@ -629,9 +664,9 @@ class SyncService {
     final now = DateTime.now().toUtc().toIso8601String();
 
     for (final key in _syncedSettingKeys) {
-      final row = await (_db.select(_db.settings)
-            ..where((t) => t.key.equals(key)))
-          .getSingleOrNull();
+      final row = await (_db.select(
+        _db.settings,
+      )..where((t) => t.key.equals(key))).getSingleOrNull();
       if (row == null) continue;
 
       try {
@@ -650,23 +685,27 @@ class SyncService {
   }
 
   Future<String?> _getLastSyncAt(String table) async {
-    final rows = await _db.customSelect(
-      'SELECT value FROM sync_meta WHERE key = ?',
-      variables: [Variable.withString('${table}_last_sync_at')],
-      readsFrom: {_db.syncMeta},
-    ).get();
+    final rows = await _db
+        .customSelect(
+          'SELECT value FROM sync_meta WHERE key = ?',
+          variables: [Variable.withString('${table}_last_sync_at')],
+          readsFrom: {_db.syncMeta},
+        )
+        .get();
     if (rows.isEmpty) return null;
     final value = rows.first.data['value'] as String?;
     return (value == null || value.isEmpty) ? null : value;
   }
 
   Future<void> _setLastSyncAt(String table, String timestamp) async {
-    await _db.into(_db.syncMeta).insertOnConflictUpdate(
-      SyncMetaCompanion.insert(
-        key: '${table}_last_sync_at',
-        value: timestamp,
-      ),
-    );
+    await _db
+        .into(_db.syncMeta)
+        .insertOnConflictUpdate(
+          SyncMetaCompanion.insert(
+            key: '${table}_last_sync_at',
+            value: timestamp,
+          ),
+        );
   }
 
   // ── Dirty settings tracking ─────────────────────────────────────────────
@@ -674,11 +713,13 @@ class SyncService {
   static const _dirtySettingsKey = 'dirty_settings';
 
   Future<Set<String>> _getDirtySettings() async {
-    final rows = await _db.customSelect(
-      'SELECT value FROM sync_meta WHERE key = ?',
-      variables: [Variable.withString(_dirtySettingsKey)],
-      readsFrom: {_db.syncMeta},
-    ).get();
+    final rows = await _db
+        .customSelect(
+          'SELECT value FROM sync_meta WHERE key = ?',
+          variables: [Variable.withString(_dirtySettingsKey)],
+          readsFrom: {_db.syncMeta},
+        )
+        .get();
     if (rows.isEmpty) return {};
     final csv = rows.first.data['value'] as String;
     return csv.isEmpty ? {} : csv.split(',').toSet();
@@ -687,17 +728,27 @@ class SyncService {
   Future<void> _addDirtySetting(String key) async {
     final dirty = await _getDirtySettings();
     dirty.add(key);
-    await _db.into(_db.syncMeta).insertOnConflictUpdate(
-      SyncMetaCompanion.insert(key: _dirtySettingsKey, value: dirty.join(',')),
-    );
+    await _db
+        .into(_db.syncMeta)
+        .insertOnConflictUpdate(
+          SyncMetaCompanion.insert(
+            key: _dirtySettingsKey,
+            value: dirty.join(','),
+          ),
+        );
   }
 
   Future<void> _removeDirtySetting(String key) async {
     final dirty = await _getDirtySettings();
     if (!dirty.remove(key)) return;
-    await _db.into(_db.syncMeta).insertOnConflictUpdate(
-      SyncMetaCompanion.insert(key: _dirtySettingsKey, value: dirty.join(',')),
-    );
+    await _db
+        .into(_db.syncMeta)
+        .insertOnConflictUpdate(
+          SyncMetaCompanion.insert(
+            key: _dirtySettingsKey,
+            value: dirty.join(','),
+          ),
+        );
   }
 
   // ── Pending review clear tracking ───────────────────────────────────────
@@ -705,20 +756,24 @@ class SyncService {
   static const _pendingReviewClearKey = 'pending_review_clear';
 
   Future<bool> _hasPendingReviewClear() async {
-    final rows = await _db.customSelect(
-      'SELECT value FROM sync_meta WHERE key = ?',
-      variables: [Variable.withString(_pendingReviewClearKey)],
-      readsFrom: {_db.syncMeta},
-    ).get();
+    final rows = await _db
+        .customSelect(
+          'SELECT value FROM sync_meta WHERE key = ?',
+          variables: [Variable.withString(_pendingReviewClearKey)],
+          readsFrom: {_db.syncMeta},
+        )
+        .get();
     return rows.isNotEmpty && rows.first.data['value'] == 'true';
   }
 
   Future<void> _setPendingReviewClear(bool pending) async {
-    await _db.into(_db.syncMeta).insertOnConflictUpdate(
-      SyncMetaCompanion.insert(
-        key: _pendingReviewClearKey,
-        value: pending ? 'true' : '',
-      ),
-    );
+    await _db
+        .into(_db.syncMeta)
+        .insertOnConflictUpdate(
+          SyncMetaCompanion.insert(
+            key: _pendingReviewClearKey,
+            value: pending ? 'true' : '',
+          ),
+        );
   }
 }

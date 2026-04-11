@@ -26,8 +26,7 @@ Future<UpdateInfo?> checkForUpdate() async {
   try {
     final response = await http
         .get(
-          Uri.parse(
-              'https://api.github.com/repos/$githubRepo/releases/latest'),
+          Uri.parse('https://api.github.com/repos/$githubRepo/releases/latest'),
           headers: {'Accept': 'application/vnd.github.v3+json'},
         )
         .timeout(const Duration(seconds: 10));
@@ -36,8 +35,11 @@ Future<UpdateInfo?> checkForUpdate() async {
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     final tagName = json['tag_name'] as String? ?? '';
-    final latestVersion = tagName.startsWith('v') ? tagName.substring(1) : tagName;
-    final releaseUrl = json['html_url'] as String? ??
+    final latestVersion = tagName.startsWith('v')
+        ? tagName.substring(1)
+        : tagName;
+    final releaseUrl =
+        json['html_url'] as String? ??
         'https://github.com/$githubRepo/releases/latest';
     final releaseNotes = json['body'] as String?;
 

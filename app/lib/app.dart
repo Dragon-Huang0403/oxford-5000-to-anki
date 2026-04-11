@@ -28,8 +28,9 @@ final themeModeProvider = FutureProvider<ThemeMode>((ref) async {
 });
 
 /// Incremented to signal DictionaryScreen to focus its search bar.
-final searchBarFocusTrigger =
-    NotifierProvider<_FocusTriggerNotifier, int>(_FocusTriggerNotifier.new);
+final searchBarFocusTrigger = NotifierProvider<_FocusTriggerNotifier, int>(
+  _FocusTriggerNotifier.new,
+);
 
 class _FocusTriggerNotifier extends Notifier<int> {
   @override
@@ -38,8 +39,9 @@ class _FocusTriggerNotifier extends Notifier<int> {
 }
 
 /// Incremented by settings screen to trigger hotkey re-registration.
-final hotKeyChangeTrigger =
-    NotifierProvider<_HotKeyChangeNotifier, int>(_HotKeyChangeNotifier.new);
+final hotKeyChangeTrigger = NotifierProvider<_HotKeyChangeNotifier, int>(
+  _HotKeyChangeNotifier.new,
+);
 
 class _HotKeyChangeNotifier extends Notifier<int> {
   @override
@@ -54,8 +56,9 @@ final showTrayIconProvider = FutureProvider<bool>((ref) async {
 });
 
 /// Clipboard text to auto-fill in search bar on hotkey trigger.
-final clipboardSearchText =
-    NotifierProvider<_ClipboardNotifier, String?>(_ClipboardNotifier.new);
+final clipboardSearchText = NotifierProvider<_ClipboardNotifier, String?>(
+  _ClipboardNotifier.new,
+);
 
 class _ClipboardNotifier extends Notifier<String?> {
   @override
@@ -89,9 +92,7 @@ String serializeHotKey(HotKey hotKey) {
   // Capture debugName now — it's only available on predefined key constants,
   // not on keys reconstructed from usbHidUsage alone.
   final rawName = hotKey.physicalKey.debugName ?? '';
-  final label = rawName
-      .replaceFirst('Key ', '')
-      .replaceFirst('Digit ', '');
+  final label = rawName.replaceFirst('Key ', '').replaceFirst('Digit ', '');
   return jsonEncode({
     'keyCode': hotKey.physicalKey.usbHidUsage,
     'modifiers': hotKey.modifiers?.map((m) => m.name).toList() ?? [],
@@ -208,12 +209,18 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
             ),
             if (info.releaseNotes != null && info.releaseNotes!.isNotEmpty) ...[
               const SizedBox(height: 12),
-              const Text('What\'s new:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                'What\'s new:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 4),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 200),
                 child: SingleChildScrollView(
-                  child: Text(info.releaseNotes!, style: const TextStyle(fontSize: 13)),
+                  child: Text(
+                    info.releaseNotes!,
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 ),
               ),
             ],
@@ -222,14 +229,19 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
         actions: [
           TextButton(
             onPressed: () {
-              ref.read(settingsDaoProvider).setSkippedVersion(info.latestVersion);
+              ref
+                  .read(settingsDaoProvider)
+                  .setSkippedVersion(info.latestVersion);
               Navigator.pop(ctx);
             },
             child: const Text('Skip this version'),
           ),
           FilledButton(
             onPressed: () {
-              launchUrl(Uri.parse(info.releaseUrl), mode: LaunchMode.externalApplication);
+              launchUrl(
+                Uri.parse(info.releaseUrl),
+                mode: LaunchMode.externalApplication,
+              );
               Navigator.pop(ctx);
             },
             child: const Text('Update'),
@@ -261,11 +273,13 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
       await trayManager.setIcon('assets/tray_icon.png', isTemplate: true);
       await trayManager.setToolTip('Deckionary');
 
-      final menu = Menu(items: [
-        MenuItem(label: 'Show/Hide Deckionary'),
-        MenuItem.separator(),
-        MenuItem(label: 'Quit'),
-      ]);
+      final menu = Menu(
+        items: [
+          MenuItem(label: 'Show/Hide Deckionary'),
+          MenuItem.separator(),
+          MenuItem(label: 'Quit'),
+        ],
+      );
       await trayManager.setContextMenu(menu);
     } catch (e) {
       debugPrint('Failed to setup tray icon: $e');
@@ -383,7 +397,9 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
   /// duplicate syncs when both onWindowFocus and resumed fire together.
   void _pullAndRefreshIfNeeded() {
     final now = DateTime.now();
-    if (_lastSyncAt != null && now.difference(_lastSyncAt!).inSeconds < 30) return;
+    if (_lastSyncAt != null && now.difference(_lastSyncAt!).inSeconds < 30) {
+      return;
+    }
     _lastSyncAt = now;
 
     final sync = ref.read(syncServiceProvider);
@@ -436,11 +452,13 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
       });
     }
 
-    final themeMode = ref.watch(themeModeProvider).when(
-      data: (mode) => mode,
-      loading: () => ThemeMode.system,
-      error: (_, _) => ThemeMode.system,
-    );
+    final themeMode = ref
+        .watch(themeModeProvider)
+        .when(
+          data: (mode) => mode,
+          loading: () => ThemeMode.system,
+          error: (_, _) => ThemeMode.system,
+        );
 
     return MaterialApp(
       title: 'Deckionary',
@@ -463,10 +481,7 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
       home: Scaffold(
         body: IndexedStack(
           index: _currentTab,
-          children: const [
-            DictionaryScreen(),
-            ReviewHomeScreen(),
-          ],
+          children: const [DictionaryScreen(), ReviewHomeScreen()],
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _currentTab,

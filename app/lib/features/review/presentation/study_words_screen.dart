@@ -4,7 +4,8 @@ import '../../../core/database/database_provider.dart';
 import '../providers/review_providers.dart';
 import 'word_detail_screen.dart';
 
-typedef _PageLoader = Future<List<Map<String, dynamic>>> Function(int limit, int offset);
+typedef _PageLoader =
+    Future<List<Map<String, dynamic>>> Function(int limit, int offset);
 
 class _TabInfo {
   final String label;
@@ -44,53 +45,61 @@ class _StudyWordsScreenState extends ConsumerState<StudyWordsScreen> {
     final tabs = <_TabInfo>[];
 
     // "All" tab — always first
-    tabs.add(_TabInfo(
-      label: 'All',
-      loader: (limit, offset) => db.getFilteredEntries(
-        cefrLevels: filter.cefrLevels.toList(),
-        ox3000: filter.ox3000,
-        ox5000: filter.ox5000,
-        limit: limit,
-        offset: offset,
-      ),
-    ));
-
-    // CEFR level tabs
-    for (final level in cefrLevels) {
-      tabs.add(_TabInfo(
-        label: level.toUpperCase(),
-        color: _cefrColor(level),
-        loader: (limit, offset) => db.getFilteredEntriesByCefr(
-          level,
+    tabs.add(
+      _TabInfo(
+        label: 'All',
+        loader: (limit, offset) => db.getFilteredEntries(
           cefrLevels: filter.cefrLevels.toList(),
           ox3000: filter.ox3000,
           ox5000: filter.ox5000,
           limit: limit,
           offset: offset,
         ),
-      ));
+      ),
+    );
+
+    // CEFR level tabs
+    for (final level in cefrLevels) {
+      tabs.add(
+        _TabInfo(
+          label: level.toUpperCase(),
+          color: _cefrColor(level),
+          loader: (limit, offset) => db.getFilteredEntriesByCefr(
+            level,
+            cefrLevels: filter.cefrLevels.toList(),
+            ox3000: filter.ox3000,
+            ox5000: filter.ox5000,
+            limit: limit,
+            offset: offset,
+          ),
+        ),
+      );
     }
 
     // Oxford tabs
     if (filter.ox3000) {
-      tabs.add(_TabInfo(
-        label: 'Oxford 3000',
-        loader: (limit, offset) => db.getEntriesByOxfordList(
-          ox3000: true,
-          limit: limit,
-          offset: offset,
+      tabs.add(
+        _TabInfo(
+          label: 'Oxford 3000',
+          loader: (limit, offset) => db.getEntriesByOxfordList(
+            ox3000: true,
+            limit: limit,
+            offset: offset,
+          ),
         ),
-      ));
+      );
     }
     if (filter.ox5000) {
-      tabs.add(_TabInfo(
-        label: 'Oxford 5000',
-        loader: (limit, offset) => db.getEntriesByOxfordList(
-          ox3000: false,
-          limit: limit,
-          offset: offset,
+      tabs.add(
+        _TabInfo(
+          label: 'Oxford 5000',
+          loader: (limit, offset) => db.getEntriesByOxfordList(
+            ox3000: false,
+            limit: limit,
+            offset: offset,
+          ),
         ),
-      ));
+      );
     }
 
     if (mounted) {
@@ -122,21 +131,25 @@ class _StudyWordsScreenState extends ConsumerState<StudyWordsScreen> {
           bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            tabs: _tabs!.map((tab) => Tab(
-              child: Text(
-                tab.label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: tab.color,
-                ),
-              ),
-            )).toList(),
+            tabs: _tabs!
+                .map(
+                  (tab) => Tab(
+                    child: Text(
+                      tab.label,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: tab.color,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
           ),
         ),
         body: TabBarView(
-          children: _tabs!.map((tab) => _WordListTab(
-            loader: tab.loader,
-          )).toList(),
+          children: _tabs!
+              .map((tab) => _WordListTab(loader: tab.loader))
+              .toList(),
         ),
       ),
     );
@@ -237,11 +250,17 @@ class _WordListTabState extends State<_WordListTab>
         final pos = entry['pos'] as String? ?? '';
 
         return ListTile(
-          title: Text(headword, style: const TextStyle(fontWeight: FontWeight.w500)),
-          subtitle: Text(pos, style: TextStyle(
-            fontStyle: FontStyle.italic,
-            color: Theme.of(context).colorScheme.primary,
-          )),
+          title: Text(
+            headword,
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+          subtitle: Text(
+            pos,
+            style: TextStyle(
+              fontStyle: FontStyle.italic,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
           trailing: const Icon(Icons.chevron_right, size: 20),
           onTap: () => Navigator.push(
             context,

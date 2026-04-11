@@ -50,7 +50,11 @@ class SenseGroupWithSenses {
   final List<SenseWithExamples> senses;
   final List<XrefInfo> xrefs;
 
-  SenseGroupWithSenses({required this.group, required this.senses, this.xrefs = const []});
+  SenseGroupWithSenses({
+    required this.group,
+    required this.senses,
+    this.xrefs = const [],
+  });
 
   String get topicEn => group['topic_en'] as String? ?? '';
   String get topicZh => group['topic_zh'] as String? ?? '';
@@ -61,26 +65,33 @@ class SenseWithExamples {
   final List<Map<String, dynamic>> examples;
   final List<XrefInfo> xrefs;
 
-  SenseWithExamples({required this.sense, required this.examples, this.xrefs = const []});
+  SenseWithExamples({
+    required this.sense,
+    required this.examples,
+    this.xrefs = const [],
+  });
 }
 
 /// Load full entry data from dictionary DB
-Future<DictEntry> loadFullEntry(DictionaryDatabase db, Map<String, dynamic> entry) async {
+Future<DictEntry> loadFullEntry(
+  DictionaryDatabase db,
+  Map<String, dynamic> entry,
+) async {
   final entryId = entry['id'] as int;
 
   // Fetch all entry-level data in parallel (12 queries -> 1 round-trip)
   final results = await Future.wait([
-    db.getPronunciations(entryId),       // [0]
-    db.getVerbForms(entryId),            // [1]
-    db.getSenseGroups(entryId),          // [2]
-    db.getXrefs(entryId),               // [3]
-    db.getAllSensesForEntry(entryId),    // [4]
-    db.getAllExamplesForEntry(entryId),  // [5]
-    db.getSynonyms(entryId),            // [6]
-    db.getWordFamily(entryId),          // [7]
-    db.getCollocations(entryId),        // [8]
-    db.getPhrasalVerbs(entryId),        // [9]
-    db.getExtraExamples(entryId),       // [10]
+    db.getPronunciations(entryId), // [0]
+    db.getVerbForms(entryId), // [1]
+    db.getSenseGroups(entryId), // [2]
+    db.getXrefs(entryId), // [3]
+    db.getAllSensesForEntry(entryId), // [4]
+    db.getAllExamplesForEntry(entryId), // [5]
+    db.getSynonyms(entryId), // [6]
+    db.getWordFamily(entryId), // [7]
+    db.getCollocations(entryId), // [8]
+    db.getPhrasalVerbs(entryId), // [9]
+    db.getExtraExamples(entryId), // [10]
   ]);
   final wordOrigin = await db.getWordOrigin(entryId);
 
@@ -144,11 +155,13 @@ Future<DictEntry> loadFullEntry(DictionaryDatabase db, Map<String, dynamic> entr
         xrefs: senseXrefs[sId] ?? [],
       );
     }).toList();
-    groups.add(SenseGroupWithSenses(
-      group: sg,
-      senses: senses,
-      xrefs: groupXrefs[sgId] ?? [],
-    ));
+    groups.add(
+      SenseGroupWithSenses(
+        group: sg,
+        senses: senses,
+        xrefs: groupXrefs[sgId] ?? [],
+      ),
+    );
   }
 
   return DictEntry(
@@ -173,7 +186,9 @@ class SearchQueryNotifier extends Notifier<String> {
   void set(String query) => state = query;
 }
 
-final searchQueryProvider = NotifierProvider<SearchQueryNotifier, String>(SearchQueryNotifier.new);
+final searchQueryProvider = NotifierProvider<SearchQueryNotifier, String>(
+  SearchQueryNotifier.new,
+);
 
 /// Search results: full entries for the query
 final searchResultsProvider = FutureProvider<List<DictEntry>>((ref) async {
@@ -219,7 +234,9 @@ final searchResultsProvider = FutureProvider<List<DictEntry>>((ref) async {
 });
 
 /// Autocomplete suggestions (lightweight - just headwords, no full load)
-final autocompleteSuggestionsProvider = FutureProvider<List<String>>((ref) async {
+final autocompleteSuggestionsProvider = FutureProvider<List<String>>((
+  ref,
+) async {
   final query = ref.watch(searchQueryProvider);
   if (query.length < 2) return [];
 

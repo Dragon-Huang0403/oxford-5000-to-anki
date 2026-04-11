@@ -48,9 +48,9 @@ class ReviewSession {
     required ReviewDao dao,
     required ReviewService service,
     SyncService? syncService,
-  })  : _dao = dao,
-        _service = service,
-        _syncService = syncService;
+  }) : _dao = dao,
+       _service = service,
+       _syncService = syncService;
 
   bool get isLoaded => _isLoaded;
   bool get isEmpty => _queue.isEmpty;
@@ -75,18 +75,23 @@ class ReviewSession {
     // 1. Due review cards
     final dueCards = await _dao.getDueCards(limit: maxReviewsPerDay);
     for (final card in dueCards) {
-      _queue.add(QueueCard(
-        dbCard: card,
-        entryId: card.entryId,
-        headword: card.headword,
-        pos: card.pos,
-        isNew: false,
-      ));
+      _queue.add(
+        QueueCard(
+          dbCard: card,
+          entryId: card.entryId,
+          headword: card.headword,
+          pos: card.pos,
+          isNew: false,
+        ),
+      );
     }
 
     // 2. New cards (subtract already-learned-today from limit)
     final newLearnedToday = await _dao.countNewLearnedToday();
-    final newLimit = (newCardsPerDay - newLearnedToday).clamp(0, newCardsPerDay);
+    final newLimit = (newCardsPerDay - newLearnedToday).clamp(
+      0,
+      newCardsPerDay,
+    );
 
     if (newLimit > 0 && !filter.isEmpty) {
       final newIds = await _dao.getNewEntryIds(
@@ -100,12 +105,14 @@ class ReviewSession {
       if (newIds.isNotEmpty) {
         final entries = await _dao.getEntryDetails(newIds);
         for (final entry in entries) {
-          _queue.add(QueueCard(
-            entryId: entry['id'] as int,
-            headword: entry['headword'] as String,
-            pos: (entry['pos'] as String?) ?? '',
-            isNew: true,
-          ));
+          _queue.add(
+            QueueCard(
+              entryId: entry['id'] as int,
+              headword: entry['headword'] as String,
+              pos: (entry['pos'] as String?) ?? '',
+              isNew: true,
+            ),
+          );
         }
       }
     }
@@ -134,10 +141,7 @@ class ReviewSession {
       stats.newLearned++;
     } else {
       // Existing card
-      final result = _service.reviewCard(
-        dbCard: card.dbCard!,
-        rating: rating,
-      );
+      final result = _service.reviewCard(dbCard: card.dbCard!, rating: rating);
       await _dao.upsertCard(result.card);
       await _dao.insertLog(result.log);
       // Fire-and-forget sync to Supabase
@@ -159,18 +163,19 @@ class ReviewSession {
       final preview = _service.scheduler.reviewCard(fsrsCard, rating);
       final interval = preview.card.due.difference(DateTime.now().toUtc());
 
-      if (interval.inMinutes < 20 &&
-          preview.card.state != fsrs.State.review) {
+      if (interval.inMinutes < 20 && preview.card.state != fsrs.State.review) {
         // Re-fetch the updated card from DB and re-queue
         final updatedCard = await _dao.getCardByEntryId(card.entryId);
         if (updatedCard != null) {
-          _queue.add(QueueCard(
-            dbCard: updatedCard,
-            entryId: card.entryId,
-            headword: card.headword,
-            pos: card.pos,
-            isNew: false,
-          ));
+          _queue.add(
+            QueueCard(
+              dbCard: updatedCard,
+              entryId: card.entryId,
+              headword: card.headword,
+              pos: card.pos,
+              isNew: false,
+            ),
+          );
         }
       }
     }
@@ -182,9 +187,6 @@ class ReviewSession {
   Map<fsrs.Rating, String> previewCurrentIntervals() {
     final card = currentCard;
     if (card == null) return {};
-    return _service.previewIntervals(
-      card.dbCard,
-      entryId: card.entryId,
-    );
+    return _service.previewIntervals(card.dbCard, entryId: card.entryId);
   }
 }

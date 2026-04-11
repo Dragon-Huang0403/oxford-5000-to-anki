@@ -3,7 +3,9 @@ import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
 
 /// How many history items to load. Increase on scroll to load more.
-final historyLimitProvider = NotifierProvider<_HistoryLimitNotifier, int>(_HistoryLimitNotifier.new);
+final historyLimitProvider = NotifierProvider<_HistoryLimitNotifier, int>(
+  _HistoryLimitNotifier.new,
+);
 
 class _HistoryLimitNotifier extends Notifier<int> {
   @override

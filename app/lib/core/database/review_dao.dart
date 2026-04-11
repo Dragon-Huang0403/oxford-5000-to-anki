@@ -7,8 +7,8 @@ class ReviewDao {
   final DictionaryDatabase _dictDb;
 
   ReviewDao({required UserDatabase db, required DictionaryDatabase dictDb})
-      : _db = db,
-        _dictDb = dictDb;
+    : _db = db,
+      _dictDb = dictDb;
 
   // ── Review Cards ──────────────────────────────────────────────────────────
 
@@ -24,17 +24,19 @@ class ReviewDao {
 
   /// Get a single review card by entry ID.
   Future<ReviewCard?> getCardByEntryId(int entryId) async {
-    return (_db.select(_db.reviewCards)
-          ..where((t) => t.entryId.equals(entryId)))
-        .getSingleOrNull();
+    return (_db.select(
+      _db.reviewCards,
+    )..where((t) => t.entryId.equals(entryId))).getSingleOrNull();
   }
 
   /// Get all existing review card entry IDs (for filtering new cards).
   Future<Set<int>> getAllReviewedEntryIds() async {
-    final rows = await _db.customSelect(
-      'SELECT entry_id FROM review_cards',
-      readsFrom: {_db.reviewCards},
-    ).get();
+    final rows = await _db
+        .customSelect(
+          'SELECT entry_id FROM review_cards',
+          readsFrom: {_db.reviewCards},
+        )
+        .get();
     return rows.map((r) => r.data['entry_id'] as int).toSet();
   }
 
@@ -84,50 +86,69 @@ class ReviewDao {
   /// Count cards due right now.
   Future<int> countDueCards() async {
     final now = DateTime.now().toUtc().toIso8601String();
-    final result = await _db.customSelect(
-      'SELECT COUNT(*) as cnt FROM review_cards WHERE due <= ?',
-      variables: [Variable.withString(now)],
-      readsFrom: {_db.reviewCards},
-    ).getSingle();
+    final result = await _db
+        .customSelect(
+          'SELECT COUNT(*) as cnt FROM review_cards WHERE due <= ?',
+          variables: [Variable.withString(now)],
+          readsFrom: {_db.reviewCards},
+        )
+        .getSingle();
     return result.data['cnt'] as int;
   }
 
   /// Count cards reviewed today (local day boundary).
   Future<int> countReviewedToday() async {
     final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day).toUtc().toIso8601String();
-    final result = await _db.customSelect(
-      'SELECT COUNT(*) as cnt FROM review_logs WHERE reviewed_at >= ?',
-      variables: [Variable.withString(startOfDay)],
-      readsFrom: {_db.reviewLogs},
-    ).getSingle();
+    final startOfDay = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).toUtc().toIso8601String();
+    final result = await _db
+        .customSelect(
+          'SELECT COUNT(*) as cnt FROM review_logs WHERE reviewed_at >= ?',
+          variables: [Variable.withString(startOfDay)],
+          readsFrom: {_db.reviewLogs},
+        )
+        .getSingle();
     return result.data['cnt'] as int;
   }
 
   /// Count new cards learned today (first review ever for a card, local day boundary).
   Future<int> countNewLearnedToday() async {
     final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day).toUtc().toIso8601String();
-    final result = await _db.customSelect(
-      '''SELECT COUNT(DISTINCT card_id) as cnt FROM review_logs
+    final startOfDay = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).toUtc().toIso8601String();
+    final result = await _db
+        .customSelect(
+          '''SELECT COUNT(DISTINCT card_id) as cnt FROM review_logs
          WHERE reviewed_at >= ?
          AND card_id IN (
            SELECT card_id FROM review_logs
            GROUP BY card_id
            HAVING MIN(reviewed_at) >= ?
          )''',
-      variables: [Variable.withString(startOfDay), Variable.withString(startOfDay)],
-      readsFrom: {_db.reviewLogs},
-    ).getSingle();
+          variables: [
+            Variable.withString(startOfDay),
+            Variable.withString(startOfDay),
+          ],
+          readsFrom: {_db.reviewLogs},
+        )
+        .getSingle();
     return result.data['cnt'] as int;
   }
 
   /// Total review cards in the system.
   Future<int> countTotalCards() async {
-    final result = await _db.customSelect(
-      'SELECT COUNT(*) as cnt FROM review_cards',
-      readsFrom: {_db.reviewCards},
-    ).getSingle();
+    final result = await _db
+        .customSelect(
+          'SELECT COUNT(*) as cnt FROM review_cards',
+          readsFrom: {_db.reviewCards},
+        )
+        .getSingle();
     return result.data['cnt'] as int;
   }
 

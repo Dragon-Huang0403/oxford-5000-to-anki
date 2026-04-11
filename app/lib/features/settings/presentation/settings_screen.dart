@@ -3,7 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../app.dart' show serializeHotKey, hotKeyDisplayString, hotKeyChangeTrigger, showTrayIconProvider, themeModeProvider;
+import '../../../app.dart'
+    show
+        serializeHotKey,
+        hotKeyDisplayString,
+        hotKeyChangeTrigger,
+        showTrayIconProvider,
+        themeModeProvider;
 import '../../../core/audio/audio_provider.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/database/database_provider.dart';
@@ -22,7 +28,9 @@ final _settingsProvider = FutureProvider<_AppSettings>((ref) async {
   final maxReviewsPerDay = await dao.getMaxReviewsPerDay();
   final reviewAutoPronounce = await dao.getReviewAutoPronounce();
   final reviewCardOrder = await dao.getReviewCardOrder();
-  final quickSearchHotKey = Platform.isMacOS ? await dao.getQuickSearchHotKey() : '';
+  final quickSearchHotKey = Platform.isMacOS
+      ? await dao.getQuickSearchHotKey()
+      : '';
   final showTrayIcon = Platform.isMacOS ? await dao.getShowTrayIcon() : false;
   return _AppSettings(
     dialect: dialect,
@@ -82,9 +90,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ref.read(syncServiceProvider)?.syncSearchHistory();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sign in failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Sign in failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _signingIn = false);
@@ -98,8 +106,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         title: const Text('Sign out?'),
         content: const Text('Your local data will be kept.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign out')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sign out'),
+          ),
         ],
       ),
     );
@@ -116,7 +130,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     // Watch auth state to rebuild on sign in/out
     if (syncEnabled) ref.watch(authStateProvider);
-    final isSignedIn = syncEnabled && (ref.read(authServiceProvider)?.isSignedIn ?? false);
+    final isSignedIn =
+        syncEnabled && (ref.read(authServiceProvider)?.isSignedIn ?? false);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -124,10 +139,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         data: (settings) => ListView(
           children: [
             // Account at top if signed in
-            if (isSignedIn) ...[
-              _buildAccountHeader(cs),
-              const Divider(),
-            ],
+            if (isSignedIn) ...[_buildAccountHeader(cs), const Divider()],
             const _SectionHeader('Audio'),
             _PronunciationDisplayTile(settings.pronunciationDisplay, ref),
             if (settings.pronunciationDisplay == 'both')
@@ -150,11 +162,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const _SectionHeader('Review'),
             _ReviewAutoPronounceTile(settings.reviewAutoPronounce, ref),
             _CardOrderTile(settings.reviewCardOrder, ref),
-            _NewCardsPerDayTile(settings.newCardsPerDay, settings.maxReviewsPerDay, ref),
+            _NewCardsPerDayTile(
+              settings.newCardsPerDay,
+              settings.maxReviewsPerDay,
+              ref,
+            ),
             _MaxReviewsPerDayTile(settings.maxReviewsPerDay, ref),
-            if (ref.watch(reviewSummaryProvider).whenOrNull(
-                  data: (s) => s.totalCards > 0,
-                ) == true) ...[
+            if (ref
+                    .watch(reviewSummaryProvider)
+                    .whenOrNull(data: (s) => s.totalCards > 0) ==
+                true) ...[
               const Divider(),
               _ClearProgressTile(ref),
             ],
@@ -180,13 +197,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final meta = user?.userMetadata;
     final name = meta?['full_name'] as String? ?? meta?['name'] as String?;
     final email = user?.email ?? meta?['email'] as String?;
-    final avatar = meta?['avatar_url'] as String? ?? meta?['picture'] as String?;
+    final avatar =
+        meta?['avatar_url'] as String? ?? meta?['picture'] as String?;
 
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: cs.primaryContainer,
         backgroundImage: avatar != null ? NetworkImage(avatar) : null,
-        child: avatar == null ? Icon(Icons.person, color: cs.onPrimaryContainer) : null,
+        child: avatar == null
+            ? Icon(Icons.person, color: cs.onPrimaryContainer)
+            : null,
       ),
       title: Text(name ?? 'Signed in'),
       subtitle: Text(email ?? 'Google account'),
@@ -199,9 +219,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: FilledButton.icon(
         onPressed: _signingIn ? null : _signIn,
         icon: _signingIn
-            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
             : const Icon(Icons.login),
-        label: Text(_signingIn ? 'Signing in...' : 'Sign in with Google to sync'),
+        label: Text(
+          _signingIn ? 'Signing in...' : 'Sign in with Google to sync',
+        ),
       ),
     );
   }
@@ -223,10 +249,14 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Text(title, style: TextStyle(
-        fontSize: 13, fontWeight: FontWeight.w600,
-        color: Theme.of(context).colorScheme.primary,
-      )),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
     );
   }
 }
@@ -236,7 +266,11 @@ class _PronunciationDisplayTile extends StatelessWidget {
   final WidgetRef ref;
   const _PronunciationDisplayTile(this.current, this.ref);
 
-  static const _labels = {'both': 'Both', 'us': 'American (US)', 'gb': 'British (GB)'};
+  static const _labels = {
+    'both': 'Both',
+    'us': 'American (US)',
+    'gb': 'British (GB)',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -251,7 +285,9 @@ class _PronunciationDisplayTile extends StatelessWidget {
         ],
         selected: {current},
         onSelectionChanged: (val) async {
-          await ref.read(settingsDaoProvider).setPronunciationDisplay(val.first);
+          await ref
+              .read(settingsDaoProvider)
+              .setPronunciationDisplay(val.first);
           ref.invalidate(_settingsProvider);
           ref.invalidate(pronunciationDisplayProvider);
         },
@@ -313,7 +349,13 @@ class _ThemeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       title: const Text('Theme'),
-      subtitle: Text(current == 'light' ? 'Light' : current == 'dark' ? 'Dark' : 'System'),
+      subtitle: Text(
+        current == 'light'
+            ? 'Light'
+            : current == 'dark'
+            ? 'Dark'
+            : 'System',
+      ),
       trailing: SegmentedButton<String>(
         segments: const [
           ButtonSegment(value: 'system', label: Text('Auto')),
@@ -360,9 +402,19 @@ class _AudioDownloadSection extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    Expanded(child: LinearProgressIndicator(value: s.progress > 0 ? s.progress : null)),
+                    Expanded(
+                      child: LinearProgressIndicator(
+                        value: s.progress > 0 ? s.progress : null,
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Text('${(s.progress * 100).toInt()}%', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                    Text(
+                      '${(s.progress * 100).toInt()}%',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -382,7 +434,8 @@ class _AudioDownloadSection extends ConsumerWidget {
             title: Text('Download failed', style: TextStyle(color: cs.error)),
             subtitle: Text(s.error!, style: const TextStyle(fontSize: 12)),
             trailing: FilledButton.tonal(
-              onPressed: () => ref.read(offlineAudioProvider.notifier).downloadAll(),
+              onPressed: () =>
+                  ref.read(offlineAudioProvider.notifier).downloadAll(),
               child: const Text('Retry'),
             ),
           );
@@ -395,7 +448,8 @@ class _AudioDownloadSection extends ConsumerWidget {
             title: const Text('All audio downloaded'),
             subtitle: Text('${s.cachedFiles} files (${s.cacheSizeFormatted})'),
             trailing: TextButton(
-              onPressed: () => ref.read(offlineAudioProvider.notifier).clearCache(),
+              onPressed: () =>
+                  ref.read(offlineAudioProvider.notifier).clearCache(),
               child: const Text('Clear'),
             ),
           );
@@ -404,13 +458,16 @@ class _AudioDownloadSection extends ConsumerWidget {
         // Not fully downloaded (partial or empty)
         return ListTile(
           leading: Icon(Icons.download, color: cs.primary),
-          title: Text(s.cachedFiles > 0
-              ? 'Download all audio (${s.cachedFiles} cached)'
-              : 'Download all audio'),
+          title: Text(
+            s.cachedFiles > 0
+                ? 'Download all audio (${s.cachedFiles} cached)'
+                : 'Download all audio',
+          ),
           subtitle: const Text('~1.7 GB — enables full offline use'),
           trailing: s.cachedFiles > 0
               ? TextButton(
-                  onPressed: () => ref.read(offlineAudioProvider.notifier).clearCache(),
+                  onPressed: () =>
+                      ref.read(offlineAudioProvider.notifier).clearCache(),
                   child: const Text('Clear'),
                 )
               : null,
@@ -472,7 +529,9 @@ class _NewCardsPerDayTile extends StatelessWidget {
               divisions: 19,
               label: '$current',
               onChanged: (val) async {
-                await ref.read(settingsDaoProvider).setNewCardsPerDay(val.round());
+                await ref
+                    .read(settingsDaoProvider)
+                    .setNewCardsPerDay(val.round());
                 ref.invalidate(_settingsProvider);
                 ref.invalidate(reviewSummaryProvider);
               },
@@ -530,7 +589,9 @@ class _MaxReviewsPerDayTile extends StatelessWidget {
           divisions: 18,
           label: '$current',
           onChanged: (val) async {
-            await ref.read(settingsDaoProvider).setMaxReviewsPerDay(val.round());
+            await ref
+                .read(settingsDaoProvider)
+                .setMaxReviewsPerDay(val.round());
             ref.invalidate(_settingsProvider);
             ref.invalidate(reviewSummaryProvider);
           },
@@ -571,10 +632,16 @@ class _HotKeyTileState extends State<_HotKeyTile> {
               child: HotKeyRecorder(
                 onHotKeyRecorded: (newHotKey) async {
                   // Ignore modifier-only presses (user still building the combo)
-                  if (_modifierUsbHids.contains(newHotKey.physicalKey.usbHidUsage)) return;
+                  if (_modifierUsbHids.contains(
+                    newHotKey.physicalKey.usbHidUsage,
+                  )) {
+                    return;
+                  }
 
                   final json = serializeHotKey(newHotKey);
-                  await widget.ref.read(settingsDaoProvider).setQuickSearchHotKey(json);
+                  await widget.ref
+                      .read(settingsDaoProvider)
+                      .setQuickSearchHotKey(json);
                   widget.ref.invalidate(_settingsProvider);
                   // Directly trigger hotkey re-registration in app state
                   widget.ref.read(hotKeyChangeTrigger.notifier).fire();

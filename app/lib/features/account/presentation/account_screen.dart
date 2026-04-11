@@ -28,9 +28,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       if (mounted) _syncNow();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sign in failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Sign in failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _signingIn = false);
@@ -44,8 +44,14 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
         title: const Text('Sign out?'),
         content: const Text('Your local data will be kept.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign out')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sign out'),
+          ),
         ],
       ),
     );
@@ -57,7 +63,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   Future<void> _syncNow() async {
     final syncService = ref.read(syncServiceProvider);
     if (syncService == null) return;
-    setState(() { _syncing = true; _syncResult = null; });
+    setState(() {
+      _syncing = true;
+      _syncResult = null;
+    });
     try {
       // Push local data first, then pull remote
       await syncService.pushAllSettings();
@@ -72,11 +81,23 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
         ref.invalidate(reviewFilterProvider);
       }
 
-      if (mounted) setState(() { _syncResult = 'Sync complete'; });
+      if (mounted) {
+        setState(() {
+          _syncResult = 'Sync complete';
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() { _syncResult = 'Sync failed: $e'; });
+      if (mounted) {
+        setState(() {
+          _syncResult = 'Sync failed: $e';
+        });
+      }
     } finally {
-      if (mounted) setState(() { _syncing = false; });
+      if (mounted) {
+        setState(() {
+          _syncing = false;
+        });
+      }
     }
   }
 
@@ -94,7 +115,11 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.cloud_off_outlined, size: 48, color: cs.onSurfaceVariant),
+                Icon(
+                  Icons.cloud_off_outlined,
+                  size: 48,
+                  color: cs.onSurfaceVariant,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'Sync not configured',
@@ -103,7 +128,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Firebase and Supabase need to be set up to enable cross-device sync.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -128,7 +155,11 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Column(
                 children: [
-                  Icon(Icons.cloud_outlined, size: 48, color: cs.onSurfaceVariant),
+                  Icon(
+                    Icons.cloud_outlined,
+                    size: 48,
+                    color: cs.onSurfaceVariant,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'Sign in to sync across devices',
@@ -138,16 +169,24 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   const SizedBox(height: 8),
                   Text(
                     'Your search history and progress will be available on all your devices.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
                   FilledButton.icon(
                     onPressed: _signingIn ? null : _signIn,
                     icon: _signingIn
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
                         : const Icon(Icons.login),
-                    label: Text(_signingIn ? 'Signing in...' : 'Sign in with Google'),
+                    label: Text(
+                      _signingIn ? 'Signing in...' : 'Sign in with Google',
+                    ),
                   ),
                 ],
               ),
@@ -156,14 +195,18 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             () {
               final user = Supabase.instance.client.auth.currentUser;
               final meta = user?.userMetadata;
-              final name = meta?['full_name'] as String? ?? meta?['name'] as String?;
+              final name =
+                  meta?['full_name'] as String? ?? meta?['name'] as String?;
               final email = user?.email ?? meta?['email'] as String?;
-              final avatar = meta?['avatar_url'] as String? ?? meta?['picture'] as String?;
+              final avatar =
+                  meta?['avatar_url'] as String? ?? meta?['picture'] as String?;
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor: cs.primaryContainer,
                   backgroundImage: avatar != null ? NetworkImage(avatar) : null,
-                  child: avatar == null ? Icon(Icons.person, color: cs.onPrimaryContainer) : null,
+                  child: avatar == null
+                      ? Icon(Icons.person, color: cs.onPrimaryContainer)
+                      : null,
                 ),
                 title: Text(name ?? 'Signed in'),
                 subtitle: Text(email ?? 'Google account'),
@@ -172,7 +215,11 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             const Divider(),
             ListTile(
               leading: _syncing
-                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.sync),
               title: const Text('Sync now'),
               subtitle: _syncResult != null ? Text(_syncResult!) : null,

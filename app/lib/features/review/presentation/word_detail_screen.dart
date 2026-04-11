@@ -42,11 +42,11 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _entry == null
-              ? const Center(child: Text('Entry not found'))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: EntryCard(entry: _entry!, onWordTap: (_) {}),
-                ),
+          ? const Center(child: Text('Entry not found'))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: EntryCard(entry: _entry!, onWordTap: (_) {}),
+            ),
     );
   }
 }

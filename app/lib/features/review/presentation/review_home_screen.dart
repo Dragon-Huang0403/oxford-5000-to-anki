@@ -29,9 +29,7 @@ class ReviewHomeScreen extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
                     decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: cs.outlineVariant),
-                      ),
+                      border: Border(top: BorderSide(color: cs.outlineVariant)),
                     ),
                     child: SafeArea(
                       top: false,
@@ -71,11 +69,12 @@ class ReviewHomeScreen extends ConsumerWidget {
         Row(
           children: [
             Expanded(
-              child: Text('Review',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineMedium
-                      ?.copyWith(fontWeight: FontWeight.bold)),
+              child: Text(
+                'Review',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             IconButton(
               icon: const Icon(Icons.settings_outlined),
@@ -95,12 +94,23 @@ class ReviewHomeScreen extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _CountColumn('Due', summary.dueCount,
-                    color: summary.dueCount > 0 ? cs.error : cs.onSurfaceVariant),
-                _CountColumn('New', summary.newAvailable,
-                    color: summary.newAvailable > 0 ? cs.primary : cs.onSurfaceVariant),
-                _CountColumn('Reviewed', summary.reviewedToday,
-                    color: cs.onSurfaceVariant),
+                _CountColumn(
+                  'Due',
+                  summary.dueCount,
+                  color: summary.dueCount > 0 ? cs.error : cs.onSurfaceVariant,
+                ),
+                _CountColumn(
+                  'New',
+                  summary.newAvailable,
+                  color: summary.newAvailable > 0
+                      ? cs.primary
+                      : cs.onSurfaceVariant,
+                ),
+                _CountColumn(
+                  'Reviewed',
+                  summary.reviewedToday,
+                  color: cs.onSurfaceVariant,
+                ),
               ],
             ),
           ),
@@ -108,9 +118,14 @@ class ReviewHomeScreen extends ConsumerWidget {
         const SizedBox(height: 20),
 
         // Study words section
-        Text('Study Words',
-            style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w600, color: cs.primary)),
+        Text(
+          'Study Words',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: cs.primary,
+          ),
+        ),
         const SizedBox(height: 8),
 
         // Active filter chips
@@ -121,7 +136,9 @@ class ReviewHomeScreen extends ConsumerWidget {
                 child: ListTile(
                   leading: Icon(Icons.add_circle_outline, color: cs.primary),
                   title: const Text('Select words to study'),
-                  subtitle: const Text('Choose CEFR levels or Oxford word lists'),
+                  subtitle: const Text(
+                    'Choose CEFR levels or Oxford word lists',
+                  ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => FilterSelector.show(context),
                 ),
@@ -132,7 +149,9 @@ class ReviewHomeScreen extends ConsumerWidget {
                 children: [
                   InkWell(
                     onTap: () => FilterSelector.show(context),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -140,10 +159,16 @@ class ReviewHomeScreen extends ConsumerWidget {
                         children: [
                           Row(
                             children: [
-                              const Text('Active Filter',
-                                  style: TextStyle(fontWeight: FontWeight.w600)),
+                              const Text(
+                                'Active Filter',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
                               const Spacer(),
-                              Icon(Icons.edit, size: 18, color: cs.onSurfaceVariant),
+                              Icon(
+                                Icons.edit,
+                                size: 18,
+                                color: cs.onSurfaceVariant,
+                              ),
                             ],
                           ),
                           const SizedBox(height: 10),
@@ -151,10 +176,12 @@ class ReviewHomeScreen extends ConsumerWidget {
                             spacing: 6,
                             runSpacing: 6,
                             children: [
-                              ...filter.cefrLevels.map((l) => Chip(
-                                    label: Text(l.toUpperCase()),
-                                    visualDensity: VisualDensity.compact,
-                                  )),
+                              ...filter.cefrLevels.map(
+                                (l) => Chip(
+                                  label: Text(l.toUpperCase()),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ),
                               if (filter.ox3000)
                                 const Chip(
                                   label: Text('Oxford 3000'),
@@ -177,7 +204,9 @@ class ReviewHomeScreen extends ConsumerWidget {
                     title: const Text('Browse Words'),
                     trailing: const Icon(Icons.chevron_right),
                     shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+                      borderRadius: BorderRadius.vertical(
+                        bottom: Radius.circular(12),
+                      ),
                     ),
                     onTap: () => Navigator.push(
                       context,
@@ -198,9 +227,14 @@ class ReviewHomeScreen extends ConsumerWidget {
 
         // Stats
         if (summary.totalCards > 0) ...[
-          Text('Progress',
-              style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600, color: cs.primary)),
+          Text(
+            'Progress',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: cs.primary,
+            ),
+          ),
           const SizedBox(height: 8),
           Card(
             child: Padding(
@@ -208,8 +242,11 @@ class ReviewHomeScreen extends ConsumerWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _CountColumn('Total Cards', summary.totalCards,
-                      color: cs.onSurfaceVariant),
+                  _CountColumn(
+                    'Total Cards',
+                    summary.totalCards,
+                    color: cs.onSurfaceVariant,
+                  ),
                 ],
               ),
             ),
@@ -220,8 +257,9 @@ class ReviewHomeScreen extends ConsumerWidget {
   }
 
   Future<void> _startSession(BuildContext context, WidgetRef ref) async {
-    final session =
-        await ref.read(reviewSessionProvider.notifier).startSession();
+    final session = await ref
+        .read(reviewSessionProvider.notifier)
+        .startSession();
     if (session.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -251,13 +289,22 @@ class _CountColumn extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text('$count',
-            style: TextStyle(
-                fontSize: 28, fontWeight: FontWeight.bold, color: color)),
+        Text(
+          '$count',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
         const SizedBox(height: 4),
-        Text(label,
-            style: TextStyle(
-                fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }

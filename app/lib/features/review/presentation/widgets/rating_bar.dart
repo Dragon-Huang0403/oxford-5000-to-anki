@@ -6,11 +6,7 @@ class RatingBar extends StatelessWidget {
   final Map<fsrs.Rating, String> intervals;
   final ValueChanged<fsrs.Rating> onRate;
 
-  const RatingBar({
-    super.key,
-    required this.intervals,
-    required this.onRate,
-  });
+  const RatingBar({super.key, required this.intervals, required this.onRate});
 
   @override
   Widget build(BuildContext context) {
@@ -82,12 +78,15 @@ class _RatingButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label,
-                style:
-                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            ),
             if (interval.isNotEmpty)
-              Text(interval,
-                  style: const TextStyle(fontSize: 11, color: Colors.white70)),
+              Text(
+                interval,
+                style: const TextStyle(fontSize: 11, color: Colors.white70),
+              ),
           ],
         ),
       ),

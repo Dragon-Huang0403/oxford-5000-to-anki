@@ -53,7 +53,13 @@ class _TappableTextState extends State<TappableText> {
         final recognizer = TapGestureRecognizer()
           ..onTap = () => widget.onWordTap(_cleanWord(word));
         _recognizers.add(recognizer);
-        spans.add(TextSpan(text: word, recognizer: recognizer, mouseCursor: SystemMouseCursors.click));
+        spans.add(
+          TextSpan(
+            text: word,
+            recognizer: recognizer,
+            mouseCursor: SystemMouseCursors.click,
+          ),
+        );
       } else {
         spans.add(TextSpan(text: word ?? other ?? ''));
       }
@@ -84,11 +90,6 @@ class _TappableTextState extends State<TappableText> {
   @override
   Widget build(BuildContext context) {
     final defaultStyle = widget.style ?? DefaultTextStyle.of(context).style;
-    return Text.rich(
-      TextSpan(
-        style: defaultStyle,
-        children: _spans,
-      ),
-    );
+    return Text.rich(TextSpan(style: defaultStyle, children: _spans));
   }
 }

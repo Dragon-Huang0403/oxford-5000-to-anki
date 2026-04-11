@@ -16,10 +16,10 @@ class ReviewFilter {
   bool get isEmpty => cefrLevels.isEmpty && !ox3000 && !ox5000;
 
   String toJson() => jsonEncode({
-        'cefr': cefrLevels.toList(),
-        'ox3000': ox3000,
-        'ox5000': ox5000,
-      });
+    'cefr': cefrLevels.toList(),
+    'ox3000': ox3000,
+    'ox5000': ox5000,
+  });
 
   factory ReviewFilter.fromJson(String json) {
     final map = jsonDecode(json) as Map<String, dynamic>;
@@ -30,11 +30,7 @@ class ReviewFilter {
     );
   }
 
-  ReviewFilter copyWith({
-    Set<String>? cefrLevels,
-    bool? ox3000,
-    bool? ox5000,
-  }) {
+  ReviewFilter copyWith({Set<String>? cefrLevels, bool? ox3000, bool? ox5000}) {
     return ReviewFilter(
       cefrLevels: cefrLevels ?? this.cefrLevels,
       ox3000: ox3000 ?? this.ox3000,

@@ -11,16 +11,18 @@ class SettingsDao {
   SettingsDao(this._db);
 
   Future<String?> get(String key) async {
-    final row = await (_db.select(_db.settings)
-          ..where((t) => t.key.equals(key)))
-        .getSingleOrNull();
+    final row = await (_db.select(
+      _db.settings,
+    )..where((t) => t.key.equals(key))).getSingleOrNull();
     return row?.value;
   }
 
   Future<void> set(String key, String value) async {
-    await _db.into(_db.settings).insertOnConflictUpdate(
-      SettingsCompanion.insert(key: key, value: value),
-    );
+    await _db
+        .into(_db.settings)
+        .insertOnConflictUpdate(
+          SettingsCompanion.insert(key: key, value: value),
+        );
     onSettingChanged?.call(key, value);
   }
 
@@ -33,8 +35,10 @@ class SettingsDao {
   Future<void> setPronunciationDisplay(String value) =>
       set('pronunciation_display', value);
 
-  Future<bool> getAutoPronounce() async => (await get('auto_pronounce')) != 'false';
-  Future<void> setAutoPronounce(bool enabled) => set('auto_pronounce', enabled.toString());
+  Future<bool> getAutoPronounce() async =>
+      (await get('auto_pronounce')) != 'false';
+  Future<void> setAutoPronounce(bool enabled) =>
+      set('auto_pronounce', enabled.toString());
 
   Future<String> getThemeMode() async => await get('theme_mode') ?? 'system';
   Future<void> setThemeMode(String mode) => set('theme_mode', mode);
@@ -69,7 +73,8 @@ class SettingsDao {
 
   /// Stored as JSON: {"keyCode": 458759, "modifiers": ["meta", "shift"], "label": "D"}
   /// Default: Cmd+Shift+D
-  static const _defaultHotKey = '{"keyCode":458759,"modifiers":["meta","shift"],"label":"D"}';
+  static const _defaultHotKey =
+      '{"keyCode":458759,"modifiers":["meta","shift"],"label":"D"}';
 
   Future<String> getQuickSearchHotKey() async =>
       await get('quick_search_hotkey') ?? _defaultHotKey;

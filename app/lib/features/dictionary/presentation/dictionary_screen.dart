@@ -79,7 +79,9 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
       }
       _lastAutoPronouncedQuery = prev; // don't re-pronounce when going back
       _controller.text = prev;
-      _controller.selection = TextSelection.fromPosition(TextPosition(offset: prev.length));
+      _controller.selection = TextSelection.fromPosition(
+        TextPosition(offset: prev.length),
+      );
       setState(() {
         _committed = true;
         _selectedEntryIndex = null;
@@ -151,7 +153,9 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     }
     _lastAutoPronouncedQuery = null;
     _controller.text = word;
-    _controller.selection = TextSelection.fromPosition(TextPosition(offset: word.length));
+    _controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: word.length),
+    );
     setState(() {
       _committed = true;
       _selectedEntryIndex = null;
@@ -171,8 +175,14 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     });
     // Save to history with POS
     _lastSavedHeadword = '${entry.headword}:${entry.pos}';
-    ref.read(searchHistoryDaoProvider)
-        .addSearch(entry.headword, entryId: entry.id, headword: entry.headword, pos: entry.pos)
+    ref
+        .read(searchHistoryDaoProvider)
+        .addSearch(
+          entry.headword,
+          entryId: entry.id,
+          headword: entry.headword,
+          pos: entry.pos,
+        )
         .then((_) => ref.read(syncServiceProvider)?.pushLatestSearch());
     // Auto-pronounce the selected entry
     _autoPronounceEntry(entry);
@@ -183,11 +193,15 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     if (!await settings.getAutoPronounce()) return;
     final display = await settings.getPronunciationDisplay();
     final dialect = display == 'both' ? await settings.getDialect() : display;
-    ref.read(audioServiceProvider).playPronunciation(entry.pronunciations, dialect: dialect);
+    ref
+        .read(audioServiceProvider)
+        .playPronunciation(entry.pronunciations, dialect: dialect);
   }
 
   void _autoPronounce(List<DictEntry> entries, String query) async {
-    if (entries.isEmpty || !_committed || query == _lastAutoPronouncedQuery) return;
+    if (entries.isEmpty || !_committed || query == _lastAutoPronouncedQuery) {
+      return;
+    }
     final first = entries.first;
     if (first.headword.toLowerCase() != query.toLowerCase()) return;
 
@@ -206,8 +220,14 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     final key = '${entry.headword}:${entry.pos}';
     if (key == _lastSavedHeadword) return;
     _lastSavedHeadword = key;
-    ref.read(searchHistoryDaoProvider)
-        .addSearch(entry.headword, entryId: entry.id, headword: entry.headword, pos: entry.pos)
+    ref
+        .read(searchHistoryDaoProvider)
+        .addSearch(
+          entry.headword,
+          entryId: entry.id,
+          headword: entry.headword,
+          pos: entry.pos,
+        )
         .then((_) => ref.read(syncServiceProvider)?.pushLatestSearch());
   }
 
@@ -249,8 +269,14 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
             });
             // Save to history and auto-pronounce
             _lastSavedHeadword = '${entries[idx].headword}:${entries[idx].pos}';
-            ref.read(searchHistoryDaoProvider)
-                .addSearch(entries[idx].headword, entryId: entries[idx].id, headword: entries[idx].headword, pos: entries[idx].pos)
+            ref
+                .read(searchHistoryDaoProvider)
+                .addSearch(
+                  entries[idx].headword,
+                  entryId: entries[idx].id,
+                  headword: entries[idx].headword,
+                  pos: entries[idx].pos,
+                )
                 .then((_) => ref.read(syncServiceProvider)?.pushLatestSearch());
             _autoPronounceEntry(entries[idx]);
           }
@@ -262,7 +288,8 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     return Focus(
       autofocus: true,
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.escape) {
           if (_controller.text.isNotEmpty) {
             // Clear search first
             _controller.clear();
@@ -284,49 +311,60 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
         child: Scaffold(
           body: SafeArea(
             child: Column(
-            children: [
-              _buildSearchBar(context),
-              // Results (SelectionArea enables text selection)
-              Expanded(
-                child: SelectionArea(
-                  child: query.isEmpty
-                    ? _buildHomeScreen()
-                    : results.when(
-                        data: (entries) {
-                          if (entries.isEmpty) {
-                            return Center(
-                              child: Text(
-                                'No results for "$query"',
-                                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                              ),
-                            );
-                          }
-                          // Single entry or entry selected: show full card
-                          if (_selectedEntryIndex != null) {
-                            final idx = _selectedEntryIndex!.clamp(0, entries.length - 1);
-                            return SingleChildScrollView(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: EntryCard(
-                                entry: entries[idx],
-                                onWordTap: _commitSearch,
-                              ),
-                            );
-                          }
-                          // Multiple entries: show options list
-                          return _buildOptionslist(entries);
-                        },
-                        loading: () => const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => Center(child: Text('Error: $e')),
-                      ),
+              children: [
+                _buildSearchBar(context),
+                // Results (SelectionArea enables text selection)
+                Expanded(
+                  child: SelectionArea(
+                    child: query.isEmpty
+                        ? _buildHomeScreen()
+                        : results.when(
+                            data: (entries) {
+                              if (entries.isEmpty) {
+                                return Center(
+                                  child: Text(
+                                    'No results for "$query"',
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                );
+                              }
+                              // Single entry or entry selected: show full card
+                              if (_selectedEntryIndex != null) {
+                                final idx = _selectedEntryIndex!.clamp(
+                                  0,
+                                  entries.length - 1,
+                                );
+                                return SingleChildScrollView(
+                                  controller: _scrollController,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: EntryCard(
+                                    entry: entries[idx],
+                                    onWordTap: _commitSearch,
+                                  ),
+                                );
+                              }
+                              // Multiple entries: show options list
+                              return _buildOptionslist(entries);
+                            },
+                            loading: () => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                            error: (e, _) => Center(child: Text('Error: $e')),
+                          ),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           ),
         ),
       ),
-      );
+    );
   }
 
   /// Options list: shows each POS variant for the user to pick
@@ -345,27 +383,56 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
             subtitle: e.pos.isNotEmpty
-                ? Text(e.pos, style: TextStyle(color: cs.primary, fontStyle: FontStyle.italic))
+                ? Text(
+                    e.pos,
+                    style: TextStyle(
+                      color: cs.primary,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  )
                 : null,
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (e.cefrLevel.isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: cs.primaryContainer,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text(e.cefrLevel.toUpperCase(), style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer)),
+                    child: Text(
+                      e.cefrLevel.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onPrimaryContainer,
+                      ),
+                    ),
                   ),
                 if (e.ox3000) ...[
                   const SizedBox(width: 6),
-                  Text('3K', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: cs.tertiary)),
+                  Text(
+                    '3K',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: cs.tertiary,
+                    ),
+                  ),
                 ],
                 if (e.ox5000 && !e.ox3000) ...[
                   const SizedBox(width: 6),
-                  Text('5K', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: cs.tertiary)),
+                  Text(
+                    '5K',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: cs.tertiary,
+                    ),
+                  ),
                 ],
                 const SizedBox(width: 4),
                 Icon(Icons.chevron_right, color: cs.onSurfaceVariant, size: 20),
@@ -389,35 +456,42 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
               onPressed: _goBack,
               tooltip: 'Back',
             ),
-          Expanded(child: TextField(
-            controller: _controller,
-            focusNode: _focusNode,
-            onChanged: _onSearchChanged,
-            onSubmitted: _onSubmitted,
-            textInputAction: TextInputAction.search,
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: 'Search for a word...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _controller.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _controller.clear();
-                        ref.read(searchQueryProvider.notifier).set('');
-                        _focusNode.requestFocus();
-                      },
-                    )
-                  : null,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              filled: true,
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              onChanged: _onSearchChanged,
+              onSubmitted: _onSubmitted,
+              textInputAction: TextInputAction.search,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Search for a word...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _controller.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _controller.clear();
+                          ref.read(searchQueryProvider.notifier).set('');
+                          _focusNode.requestFocus();
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+              ),
             ),
-          )),
+          ),
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
             },
           ),
         ],
@@ -428,7 +502,8 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
   Widget _buildHomeScreen() {
     final historyAsync = ref.watch(searchHistoryProvider);
     return historyAsync.when(
-      data: (history) => history.isEmpty ? _buildWelcome() : _buildSearchHistory(history),
+      data: (history) =>
+          history.isEmpty ? _buildWelcome() : _buildSearchHistory(history),
       loading: () => _buildWelcome(),
       error: (_, _) => _buildWelcome(),
     );
@@ -439,21 +514,25 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.menu_book_outlined, size: 64, color: Theme.of(context).colorScheme.primary),
+          Icon(
+            Icons.menu_book_outlined,
+            size: 64,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(height: 16),
           Text(
             'OALD10 Dictionary',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             'Type a word to look it up',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -475,9 +554,9 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
               children: [
                 Text(
                   'Recent',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
                 const Spacer(),
                 TextButton(
@@ -487,8 +566,14 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
                       builder: (ctx) => AlertDialog(
                         title: const Text('Clear search history?'),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Clear')),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Clear'),
+                          ),
                         ],
                       ),
                     );
@@ -537,9 +622,9 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
             ),
             trailing: Text(
               _relativeTime(item.searchedAt),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
             onTap: () => _commitSearch(word, pos: pos.isNotEmpty ? pos : null),
             contentPadding: EdgeInsets.zero,

@@ -13,7 +13,8 @@ final reviewServiceProvider = Provider<ReviewService>((ref) {
 /// The user's active study filter, loaded from settings.
 final reviewFilterProvider =
     AsyncNotifierProvider<ReviewFilterNotifier, ReviewFilter>(
-        ReviewFilterNotifier.new);
+      ReviewFilterNotifier.new,
+    );
 
 class ReviewFilterNotifier extends AsyncNotifier<ReviewFilter> {
   @override
@@ -67,7 +68,10 @@ final reviewSummaryProvider = FutureProvider<ReviewSummary>((ref) async {
   int newAvailable = 0;
   if (!filter.isEmpty) {
     final newLearnedToday = await dao.countNewLearnedToday();
-    final remaining = (newCardsPerDay - newLearnedToday).clamp(0, newCardsPerDay);
+    final remaining = (newCardsPerDay - newLearnedToday).clamp(
+      0,
+      newCardsPerDay,
+    );
     if (remaining > 0) {
       final newIds = await dao.getNewEntryIds(
         cefrLevels: filter.cefrLevels.toList(),
@@ -90,7 +94,8 @@ final reviewSummaryProvider = FutureProvider<ReviewSummary>((ref) async {
 /// Active review session state.
 final reviewSessionProvider =
     AsyncNotifierProvider<ReviewSessionNotifier, ReviewSession?>(
-        ReviewSessionNotifier.new);
+      ReviewSessionNotifier.new,
+    );
 
 class ReviewSessionNotifier extends AsyncNotifier<ReviewSession?> {
   @override
@@ -108,7 +113,11 @@ class ReviewSessionNotifier extends AsyncNotifier<ReviewSession?> {
     final cardOrder = await settingsDao.getReviewCardOrder();
 
     final syncService = ref.read(syncServiceProvider);
-    final session = ReviewSession(dao: dao, service: service, syncService: syncService);
+    final session = ReviewSession(
+      dao: dao,
+      service: service,
+      syncService: syncService,
+    );
     await session.loadQueue(
       filter: filter,
       newCardsPerDay: newCardsPerDay,

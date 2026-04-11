@@ -10,7 +10,7 @@ class ReviewService {
   final fsrs.Scheduler scheduler;
 
   ReviewService({fsrs.Scheduler? scheduler})
-      : scheduler = scheduler ?? fsrs.Scheduler();
+    : scheduler = scheduler ?? fsrs.Scheduler();
 
   /// Convert a DB ReviewCard row to an FSRS Card for scheduling.
   fsrs.Card toFsrsCard(ReviewCard dbCard) {
@@ -23,18 +23,15 @@ class ReviewService {
       stability: dbCard.stability == 0 ? null : dbCard.stability,
       difficulty: dbCard.difficulty == 0 ? null : dbCard.difficulty,
       due: DateTime.parse(dbCard.due).toUtc(),
-      lastReview:
-          dbCard.lastReview != null ? DateTime.parse(dbCard.lastReview!) : null,
+      lastReview: dbCard.lastReview != null
+          ? DateTime.parse(dbCard.lastReview!)
+          : null,
     );
   }
 
   /// Create a new FSRS Card for a never-seen entry.
   fsrs.Card newFsrsCard(int entryId) {
-    return fsrs.Card(
-      cardId: entryId,
-      state: fsrs.State.learning,
-      step: 0,
-    );
+    return fsrs.Card(cardId: entryId, state: fsrs.State.learning, step: 0);
   }
 
   /// Review a card and return updated DB companions for both card and log.
@@ -45,7 +42,12 @@ class ReviewService {
   }) {
     final fsrsCard = toFsrsCard(dbCard);
     final now = DateTime.now().toUtc();
-    final result = scheduler.reviewCard(fsrsCard, rating, reviewDateTime: now, reviewDuration: reviewDurationMs);
+    final result = scheduler.reviewCard(
+      fsrsCard,
+      rating,
+      reviewDateTime: now,
+      reviewDuration: reviewDurationMs,
+    );
 
     final elapsedDays = dbCard.lastReview != null
         ? now.difference(DateTime.parse(dbCard.lastReview!)).inDays
@@ -132,13 +134,22 @@ class ReviewService {
 
   /// Preview what intervals each rating would give for a card.
   /// Returns map of Rating -> human-readable string ("1m", "10m", "1d").
-  Map<fsrs.Rating, String> previewIntervals(ReviewCard? dbCard, {int? entryId}) {
-    final fsrsCard = dbCard != null ? toFsrsCard(dbCard) : newFsrsCard(entryId ?? 0);
+  Map<fsrs.Rating, String> previewIntervals(
+    ReviewCard? dbCard, {
+    int? entryId,
+  }) {
+    final fsrsCard = dbCard != null
+        ? toFsrsCard(dbCard)
+        : newFsrsCard(entryId ?? 0);
     final now = DateTime.now().toUtc();
     final result = <fsrs.Rating, String>{};
 
     for (final rating in fsrs.Rating.values) {
-      final reviewed = scheduler.reviewCard(fsrsCard, rating, reviewDateTime: now);
+      final reviewed = scheduler.reviewCard(
+        fsrsCard,
+        rating,
+        reviewDateTime: now,
+      );
       final interval = reviewed.card.due.difference(now);
       result[rating] = _formatInterval(interval);
     }

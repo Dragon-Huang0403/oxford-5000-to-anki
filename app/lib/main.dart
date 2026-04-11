@@ -21,11 +21,7 @@ void main() async {
     await windowManager.setPreventClose(true);
   }
 
-  runApp(
-    const ProviderScope(
-      child: AppLoader(),
-    ),
-  );
+  runApp(const ProviderScope(child: AppLoader()));
 }
 
 class AppLoader extends StatefulWidget {
@@ -45,20 +41,19 @@ class _AppLoaderState extends State<AppLoader> {
   }
 
   Future<void> _initialize() async {
-    await Future.wait([
-      initDatabases(),
-      _initSyncServices(),
-    ]);
+    await Future.wait([initDatabases(), _initSyncServices()]);
   }
 
   Future<void> _initSyncServices() async {
     try {
       await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform);
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
       if (supabaseAnonKey.isNotEmpty) {
         await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
         await GoogleSignIn.instance.initialize(
-          serverClientId: '43742335452-ef9piond4ujid0ulcf3695857s938urc.apps.googleusercontent.com',
+          serverClientId:
+              '43742335452-ef9piond4ujid0ulcf3695857s938urc.apps.googleusercontent.com',
         );
         syncEnabled = true;
       }
@@ -90,9 +85,7 @@ class _AppLoaderState extends State<AppLoader> {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             home: Scaffold(
-              body: Center(
-                child: Text('Failed to start: ${snapshot.error}'),
-              ),
+              body: Center(child: Text('Failed to start: ${snapshot.error}')),
             ),
           );
         }

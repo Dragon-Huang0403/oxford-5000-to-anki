@@ -66,10 +66,9 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
     if (entry.pronunciations.isEmpty) return;
     final display = await settings.getPronunciationDisplay();
     final dialect = display == 'both' ? await settings.getDialect() : display;
-    ref.read(audioServiceProvider).playPronunciation(
-          entry.pronunciations,
-          dialect: dialect,
-        );
+    ref
+        .read(audioServiceProvider)
+        .playPronunciation(entry.pronunciations, dialect: dialect);
   }
 
   Future<void> _rate(fsrs.Rating rating) async {
@@ -141,9 +140,7 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
           child: LinearProgressIndicator(
-            value: session.total > 0
-                ? session.currentIndex / session.total
-                : 0,
+            value: session.total > 0 ? session.currentIndex / session.total : 0,
           ),
         ),
       ),
@@ -156,15 +153,10 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
               child: Column(
                 children: [
                   Expanded(
-                    child: _showBack
-                        ? _buildBack()
-                        : _buildFront(card, cs),
+                    child: _showBack ? _buildBack() : _buildFront(card, cs),
                   ),
                   if (_showBack)
-                    RatingBar(
-                      intervals: _intervals,
-                      onRate: _rate,
-                    )
+                    RatingBar(intervals: _intervals, onRate: _rate)
                   else
                     SafeArea(
                       child: Padding(
@@ -172,7 +164,9 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
                         child: Text(
                           'Tap to show answer',
                           style: TextStyle(
-                              color: cs.onSurfaceVariant, fontSize: 14),
+                            color: cs.onSurfaceVariant,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                     ),
@@ -192,17 +186,22 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
             if (card.isNew)
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: cs.primaryContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text('NEW',
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: cs.onPrimaryContainer)),
+                child: Text(
+                  'NEW',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onPrimaryContainer,
+                  ),
+                ),
               ),
             Text(
               card.headword,
@@ -257,11 +256,19 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
       alignment: WrapAlignment.center,
       children: [
         if (us != null && showUs)
-          _phonGroup('US', us['ipa'] as String? ?? '',
-              us['audio_file'] as String? ?? '', _usColor),
+          _phonGroup(
+            'US',
+            us['ipa'] as String? ?? '',
+            us['audio_file'] as String? ?? '',
+            _usColor,
+          ),
         if (gb != null && showGb)
-          _phonGroup('GB', gb['ipa'] as String? ?? '',
-              gb['audio_file'] as String? ?? '', _gbColor),
+          _phonGroup(
+            'GB',
+            gb['ipa'] as String? ?? '',
+            gb['audio_file'] as String? ?? '',
+            _gbColor,
+          ),
       ],
     );
   }
@@ -276,12 +283,20 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
             color: color.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(3),
           ),
-          child: Text(label,
-              style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
         ),
         const SizedBox(width: 6),
-        Text(ipa, style: const TextStyle(fontFamily: 'monospace', fontSize: 14)),
+        Text(
+          ipa,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+        ),
         if (audioFile.isNotEmpty) ...[
           const SizedBox(width: 4),
           SizedBox(
@@ -293,8 +308,7 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
               style: IconButton.styleFrom(backgroundColor: color),
               color: Colors.white,
               icon: const Icon(Icons.volume_up),
-              onPressed: () =>
-                  ref.read(audioServiceProvider).play(audioFile),
+              onPressed: () => ref.read(audioServiceProvider).play(audioFile),
             ),
           ),
         ],
