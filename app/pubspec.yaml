@@ -36,6 +36,10 @@ dependencies:
   firebase_core: any
   google_sign_in: any
 
+  # App update
+  package_info_plus: any
+  url_launcher: any
+
   # Utilities
   uuid: any
   connectivity_plus: ">=6.0.0 <7.1.0" # 7.1.x requires macOS 26 SDK (Xcode 26+)

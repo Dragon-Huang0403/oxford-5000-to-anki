@@ -7,8 +7,11 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:screen_retriever/screen_retriever.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'core/database/database_provider.dart';
 import 'core/sync/sync_provider.dart';
+import 'core/update/update_provider.dart';
+import 'core/update/update_service.dart';
 import 'features/dictionary/presentation/dictionary_screen.dart';
 import 'features/review/presentation/review_home_screen.dart';
 import 'features/review/providers/review_providers.dart';
@@ -165,6 +168,7 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
       trayManager.addListener(this);
       _initMacOS();
     }
+    _checkForUpdate();
   }
 
   Future<void> _initMacOS() async {
@@ -174,6 +178,65 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
 
     final showTray = await dao.getShowTrayIcon();
     if (showTray) await _setupTrayIcon();
+  }
+
+  void _checkForUpdate() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final info = await ref.read(updateInfoProvider.future);
+      if (info == null || !mounted) return;
+
+      final dao = ref.read(settingsDaoProvider);
+      final skipped = await dao.getSkippedVersion();
+      if (skipped == info.latestVersion) return;
+
+      if (mounted) _showUpdateDialog(info);
+    });
+  }
+
+  void _showUpdateDialog(UpdateInfo info) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Update Available'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Version ${info.latestVersion} is available '
+              '(you have ${info.currentVersion}).',
+            ),
+            if (info.releaseNotes != null && info.releaseNotes!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text('What\'s new:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: SingleChildScrollView(
+                  child: Text(info.releaseNotes!, style: const TextStyle(fontSize: 13)),
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ref.read(settingsDaoProvider).setSkippedVersion(info.latestVersion);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Skip this version'),
+          ),
+          FilledButton(
+            onPressed: () {
+              launchUrl(Uri.parse(info.releaseUrl), mode: LaunchMode.externalApplication);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _registerHotKey(String hotKeyJson) async {

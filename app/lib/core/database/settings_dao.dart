@@ -80,4 +80,10 @@ class SettingsDao {
       (await get('show_tray_icon')) != 'false';
   Future<void> setShowTrayIcon(bool enabled) =>
       set('show_tray_icon', enabled.toString());
+
+  // ── App update ──────────────────────────────────────────────────────────
+
+  Future<String?> getSkippedVersion() => get('skipped_version');
+  Future<void> setSkippedVersion(String version) =>
+      set('skipped_version', version);
 }
