@@ -24,6 +24,11 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Decode Firebase config
+        run: |
+          echo "${{ secrets.FIREBASE_OPTIONS_DART }}" | base64 -d > lib/firebase_options.dart
+          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
+
       - name: Decode keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
 
@@ -74,6 +79,11 @@ jobs:
           cache: true
 
       - run: flutter pub get
+
+      - name: Decode Firebase config
+        run: |
+          echo "${{ secrets.FIREBASE_OPTIONS_DART }}" | base64 -d > lib/firebase_options.dart
+          echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST_MACOS }}" | base64 -d > macos/Runner/GoogleService-Info.plist
 
       - name: Build macOS
         run: >-

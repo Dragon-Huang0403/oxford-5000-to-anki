@@ -26,6 +26,13 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Decode Firebase config
+        run: |
+          echo "${{ secrets.FIREBASE_OPTIONS_DART }}" | base64 -d > lib/firebase_options.dart
+          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
+          echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST_IOS }}" | base64 -d > ios/Runner/GoogleService-Info.plist
+          echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST_MACOS }}" | base64 -d > macos/Runner/GoogleService-Info.plist
+
       - name: Lint
         run: flutter analyze
 
