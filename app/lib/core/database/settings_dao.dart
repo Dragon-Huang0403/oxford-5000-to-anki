@@ -86,8 +86,7 @@ class SettingsDao {
   Future<void> setShowTrayIcon(bool enabled) =>
       set('show_tray_icon', enabled.toString());
 
-  Future<bool> getShowInDock() async =>
-      (await get('show_in_dock')) != 'false';
+  Future<bool> getShowInDock() async => (await get('show_in_dock')) != 'false';
   Future<void> setShowInDock(bool enabled) =>
       set('show_in_dock', enabled.toString());
 

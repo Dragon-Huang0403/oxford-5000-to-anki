@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -e
+
+cd app
+
+echo "Auto-formatting..."
+dart format .
+git add -u
+
+echo "Running lint..."
+flutter analyze --fatal-warnings
+
+echo "All checks passed."
