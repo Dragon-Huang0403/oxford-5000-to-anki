@@ -171,10 +171,10 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
   }
 
   Future<void> _registerHotKey(String hotKeyJson) async {
-    if (_registeredHotKey != null) {
-      await hotKeyManager.unregister(_registeredHotKey!);
-      _registeredHotKey = null;
-    }
+    // Unregister ALL hotkeys — unregister(singleKey) doesn't reliably
+    // remove the native listener on macOS.
+    await hotKeyManager.unregisterAll();
+    _registeredHotKey = null;
     try {
       final hotKey = deserializeHotKey(hotKeyJson);
       await hotKeyManager.register(
