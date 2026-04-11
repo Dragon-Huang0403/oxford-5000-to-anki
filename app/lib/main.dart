@@ -45,7 +45,13 @@ class _AppLoaderState extends State<AppLoader> {
   }
 
   Future<void> _initialize() async {
-    await initDatabases();
+    await Future.wait([
+      initDatabases(),
+      _initSyncServices(),
+    ]);
+  }
+
+  Future<void> _initSyncServices() async {
     try {
       await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform);

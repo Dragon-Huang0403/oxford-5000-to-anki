@@ -146,8 +146,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             _CardOrderTile(settings.reviewCardOrder, ref),
             _NewCardsPerDayTile(settings.newCardsPerDay, settings.maxReviewsPerDay, ref),
             _MaxReviewsPerDayTile(settings.maxReviewsPerDay, ref),
-            const Divider(),
-            _ClearProgressTile(ref),
+            if (ref.watch(reviewSummaryProvider).whenOrNull(
+                  data: (s) => s.totalCards > 0,
+                ) == true) ...[
+              const Divider(),
+              _ClearProgressTile(ref),
+            ],
             // Sign in / Sign out at bottom
             if (syncEnabled) ...[
               const Divider(),
