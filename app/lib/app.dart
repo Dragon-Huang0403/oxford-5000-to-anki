@@ -91,12 +91,31 @@ String serializeHotKey(HotKey hotKey) {
   });
 }
 
+/// Derive a key label from USB HID usage code (fallback for old JSON without 'label').
+String _labelFromUsbHid(int keyCode) {
+  // Letters A-Z: USB HID 0x00070004 (458756) through 0x0007001D (458781)
+  if (keyCode >= 458756 && keyCode <= 458781) {
+    return String.fromCharCode('A'.codeUnitAt(0) + keyCode - 458756);
+  }
+  // Digits 1-9: USB HID 0x0007001E (458782) through 0x00070026 (458790)
+  if (keyCode >= 458782 && keyCode <= 458790) {
+    return String.fromCharCode('1'.codeUnitAt(0) + keyCode - 458782);
+  }
+  // Digit 0: USB HID 0x00070027 (458791)
+  if (keyCode == 458791) return '0';
+  return '?';
+}
+
 /// Display a hotkey from its JSON representation (e.g. "⌘⇧D").
-/// Works from JSON directly — avoids debugName lookup on deserialized keys.
 String hotKeyDisplayString(String hotKeyJson) {
   final map = jsonDecode(hotKeyJson) as Map<String, dynamic>;
   final modifiers = (map['modifiers'] as List).cast<String>();
-  final label = map['label'] as String? ?? '?';
+  // Use stored label, or derive from keyCode for old format without label
+  var label = map['label'] as String?;
+  if (label == null || label == '?') {
+    final keyCode = map['keyCode'] as int?;
+    label = keyCode != null ? _labelFromUsbHid(keyCode) : '?';
+  }
 
   final buffer = StringBuffer();
   for (final mod in modifiers) {
