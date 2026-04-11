@@ -3,6 +3,7 @@ import 'app_database.dart';
 import 'review_dao.dart';
 import 'search_history_dao.dart';
 import 'settings_dao.dart';
+import '../sync/sync_provider.dart';
 
 /// Global provider for the read-only dictionary database.
 late final DictionaryDatabase globalDictDb;
@@ -23,9 +24,14 @@ final searchHistoryDaoProvider = Provider<SearchHistoryDao>((ref) {
   return SearchHistoryDao(ref.read(userDbProvider));
 });
 
-/// Settings DAO
+/// Settings DAO — auto-pushes changes to Supabase if sync is available.
 final settingsDaoProvider = Provider<SettingsDao>((ref) {
-  return SettingsDao(ref.read(userDbProvider));
+  final dao = SettingsDao(ref.read(userDbProvider));
+  final sync = ref.read(syncServiceProvider);
+  if (sync != null) {
+    dao.onSettingChanged = (key, value) => sync.pushSetting(key, value);
+  }
+  return dao;
 });
 
 /// Review DAO

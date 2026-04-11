@@ -484,6 +484,100 @@ class SyncService {
     await pullReviewLogs();
   }
 
+  // ── Settings Sync ──────────────────────────────────────────────────────
+
+  /// Keys worth syncing across devices (review config + audio preferences).
+  static const _syncedSettingKeys = [
+    'new_cards_per_day',
+    'max_reviews_per_day',
+    'review_card_order',
+    'review_auto_pronounce',
+    'review_filter',
+    'audio_dialect',
+    'auto_pronounce',
+    'theme_mode',
+  ];
+
+  /// Push a single setting to Supabase (fire-and-forget after change).
+  Future<void> pushSetting(String key, String value) async {
+    if (_userId == null || !_syncedSettingKeys.contains(key)) return;
+    try {
+      await _supabase.from('user_settings').upsert({
+        'user_id': _userId,
+        'key': key,
+        'value': value,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('Push setting "$key" failed: $e');
+    }
+  }
+
+  /// Pull all settings from Supabase that are newer than local.
+  Future<int> pullSettings() async {
+    if (_userId == null) return 0;
+
+    final lastSyncAt = await _getLastSyncAt('user_settings');
+
+    var filter = _supabase
+        .from('user_settings')
+        .select()
+        .eq('user_id', _userId!);
+
+    if (lastSyncAt != null) {
+      filter = filter.gt('updated_at', lastSyncAt);
+    }
+
+    final rows = await filter.order('updated_at', ascending: false);
+    if (rows.isEmpty) return 0;
+
+    var pulled = 0;
+    for (final row in rows) {
+      final key = row['key'] as String;
+      final value = row['value'] as String;
+      if (!_syncedSettingKeys.contains(key)) continue;
+
+      // Write to local settings (overwrites local value)
+      await _db.into(_db.settings).insertOnConflictUpdate(
+        SettingsCompanion.insert(key: key, value: value),
+      );
+      pulled++;
+    }
+
+    if (rows.isNotEmpty) {
+      await _setLastSyncAt('user_settings', rows.first['updated_at'] as String);
+    }
+
+    return pulled;
+  }
+
+  /// Push all synced settings to Supabase (for initial sync after sign-in).
+  Future<int> pushAllSettings() async {
+    if (_userId == null) return 0;
+    var pushed = 0;
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    for (final key in _syncedSettingKeys) {
+      final row = await (_db.select(_db.settings)
+            ..where((t) => t.key.equals(key)))
+          .getSingleOrNull();
+      if (row == null) continue;
+
+      try {
+        await _supabase.from('user_settings').upsert({
+          'user_id': _userId,
+          'key': key,
+          'value': row.value,
+          'updated_at': now,
+        });
+        pushed++;
+      } catch (e) {
+        continue;
+      }
+    }
+    return pushed;
+  }
+
   Future<String?> _getLastSyncAt(String table) async {
     final rows = await _db.customSelect(
       'SELECT value FROM sync_meta WHERE key = ?',

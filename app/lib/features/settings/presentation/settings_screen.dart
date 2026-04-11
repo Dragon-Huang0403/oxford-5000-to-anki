@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../app.dart' show deserializeHotKey, serializeHotKey, hotKeyDisplayString, quickSearchHotKeyProvider, showTrayIconProvider, themeModeProvider;
+import '../../../app.dart' show serializeHotKey, hotKeyDisplayString, quickSearchHotKeyProvider, showTrayIconProvider, themeModeProvider;
 import '../../../core/audio/audio_provider.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/database/database_provider.dart';
@@ -515,8 +515,7 @@ class _HotKeyTileState extends State<_HotKeyTile> {
 
   @override
   Widget build(BuildContext context) {
-    final hotKey = deserializeHotKey(widget.hotKeyJson);
-    final display = hotKeyDisplayString(hotKey);
+    final display = hotKeyDisplayString(widget.hotKeyJson);
 
     return ListTile(
       title: const Text('Global shortcut'),

@@ -78,30 +78,41 @@ HotKey deserializeHotKey(String jsonStr) {
 }
 
 String serializeHotKey(HotKey hotKey) {
+  // Capture debugName now — it's only available on predefined key constants,
+  // not on keys reconstructed from usbHidUsage alone.
+  final rawName = hotKey.physicalKey.debugName ?? '';
+  final label = rawName
+      .replaceFirst('Key ', '')
+      .replaceFirst('Digit ', '');
   return jsonEncode({
     'keyCode': hotKey.physicalKey.usbHidUsage,
     'modifiers': hotKey.modifiers?.map((m) => m.name).toList() ?? [],
+    'label': label.isEmpty ? '?' : label,
   });
 }
 
-String hotKeyDisplayString(HotKey hotKey) {
+/// Display a hotkey from its JSON representation (e.g. "⌘⇧D").
+/// Works from JSON directly — avoids debugName lookup on deserialized keys.
+String hotKeyDisplayString(String hotKeyJson) {
+  final map = jsonDecode(hotKeyJson) as Map<String, dynamic>;
+  final modifiers = (map['modifiers'] as List).cast<String>();
+  final label = map['label'] as String? ?? '?';
+
   final buffer = StringBuffer();
-  for (final mod in hotKey.modifiers ?? <HotKeyModifier>[]) {
+  for (final mod in modifiers) {
     switch (mod) {
-      case HotKeyModifier.meta:
+      case 'meta':
         buffer.write('\u2318');
-      case HotKeyModifier.shift:
+      case 'shift':
         buffer.write('\u21E7');
-      case HotKeyModifier.alt:
+      case 'alt':
         buffer.write('\u2325');
-      case HotKeyModifier.control:
+      case 'control':
         buffer.write('\u2303');
       default:
-        buffer.write(mod.name);
+        buffer.write(mod);
     }
   }
-  final keyName = hotKey.physicalKey.debugName ?? 'Unknown';
-  final label = keyName.replaceFirst('Key ', '');
   buffer.write(label);
   return buffer.toString();
 }
@@ -268,6 +279,7 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
       final sync = ref.read(syncServiceProvider);
       sync?.pullSearchHistory();
       sync?.syncReviewData();
+      sync?.pullSettings();
     }
   }
 

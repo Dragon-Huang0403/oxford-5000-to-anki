@@ -1,8 +1,12 @@
 import 'app_database.dart';
 
+/// Callback to push a setting change to remote sync.
+typedef SettingSyncCallback = void Function(String key, String value);
+
 /// Data access for app settings
 class SettingsDao {
   final UserDatabase _db;
+  SettingSyncCallback? onSettingChanged;
 
   SettingsDao(this._db);
 
@@ -17,6 +21,7 @@ class SettingsDao {
     await _db.into(_db.settings).insertOnConflictUpdate(
       SettingsCompanion.insert(key: key, value: value),
     );
+    onSettingChanged?.call(key, value);
   }
 
   Future<String> getDialect() async => await get('audio_dialect') ?? 'us';
@@ -56,9 +61,9 @@ class SettingsDao {
 
   // ── Quick Search settings (macOS) ──────────────────────────────────────
 
-  /// Stored as JSON: {"keyCode": 458759, "modifiers": ["meta", "shift"]}
+  /// Stored as JSON: {"keyCode": 458759, "modifiers": ["meta", "shift"], "label": "D"}
   /// Default: Cmd+Shift+D
-  static const _defaultHotKey = '{"keyCode":458759,"modifiers":["meta","shift"]}';
+  static const _defaultHotKey = '{"keyCode":458759,"modifiers":["meta","shift"],"label":"D"}';
 
   Future<String> getQuickSearchHotKey() async =>
       await get('quick_search_hotkey') ?? _defaultHotKey;
