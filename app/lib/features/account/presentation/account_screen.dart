@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../app.dart';
@@ -15,6 +18,8 @@ class AccountScreen extends ConsumerStatefulWidget {
 }
 
 class _AccountScreenState extends ConsumerState<AccountScreen> {
+  static const _windowChannel = MethodChannel('com.deckionary/window');
+
   bool _signingIn = false;
   bool _syncing = false;
   String? _syncResult;
@@ -23,6 +28,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     if (_signingIn) return;
     setState(() => _signingIn = true);
     ref.read(signInInProgressProvider.notifier).set(true);
+    if (Platform.isMacOS) {
+      await _windowChannel.invokeMethod('setNormalMode');
+    }
     try {
       await ref.read(authServiceProvider)?.signInWithGoogle();
       // Auto-sync on first sign-in: push all existing local history
@@ -35,6 +43,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       }
     } finally {
       ref.read(signInInProgressProvider.notifier).set(false);
+      if (Platform.isMacOS) {
+        final dock = ref.read(showInDockProvider).value ?? true;
+        await _windowChannel.invokeMethod('setOverlayMode', dock);
+      }
       if (mounted) setState(() => _signingIn = false);
     }
   }

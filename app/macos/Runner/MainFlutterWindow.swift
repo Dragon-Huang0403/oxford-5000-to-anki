@@ -43,6 +43,19 @@ class MainFlutterWindow: NSPanel {
           NSApp.setActivationPolicy(.accessory)
         }
         result(nil)
+      case "setNormalMode":
+        self?.styleMask.remove(.nonactivatingPanel)
+        self?.level = .normal
+        NSApp.setActivationPolicy(.regular)
+        result(nil)
+      case "setOverlayMode":
+        self?.styleMask.insert(.nonactivatingPanel)
+        self?.level = .floating
+        let showInDock = (call.arguments as? Bool) ?? false
+        if !showInDock {
+          NSApp.setActivationPolicy(.accessory)
+        }
+        result(nil)
       default:
         result(FlutterMethodNotImplemented)
       }
