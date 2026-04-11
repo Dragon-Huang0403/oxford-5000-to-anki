@@ -75,21 +75,11 @@ jobs:
       - name: Download dictionary database
         run: curl -fSL -o assets/oald10.db "${{ secrets.R2_BASE_URL }}/db/oald10.db"
 
-      - name: Set up macOS code signing
-        env:
-          CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
-          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+      - name: Disable code signing for CI
         run: |
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          KEYCHAIN_PASSWORD=$(uuidgen)
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          echo "$CERTIFICATE" | base64 --decode > $RUNNER_TEMP/certificate.p12
-          security import $RUNNER_TEMP/certificate.p12 -P "$CERTIFICATE_PASSWORD" \
-            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          cd macos/Runner.xcodeproj
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' project.pbxproj
+          sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=macosx\*\]" = "Apple Development"/"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-"/g' project.pbxproj
 
       - name: Build macOS
         run: >-
@@ -105,10 +95,6 @@ jobs:
         with:
           name: macos-build
           path: app/macos-build.zip
-
-      - name: Clean up keychain
-        if: always()
-        run: security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
 
   release:
     needs: [build-android, build-macos]
