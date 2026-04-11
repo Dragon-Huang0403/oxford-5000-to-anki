@@ -623,6 +623,9 @@ class _ClearProgressTile extends StatelessWidget {
     );
     if (confirmed == true) {
       await dao.clearAllProgress();
+      // Also clear remote data so it doesn't sync back
+      final sync = ref.read(syncServiceProvider);
+      sync?.clearRemoteReviewData();
       ref.invalidate(reviewSummaryProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

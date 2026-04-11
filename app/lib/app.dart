@@ -11,6 +11,7 @@ import 'core/database/database_provider.dart';
 import 'core/sync/sync_provider.dart';
 import 'features/dictionary/presentation/dictionary_screen.dart';
 import 'features/review/presentation/review_home_screen.dart';
+import 'features/review/providers/review_providers.dart';
 
 /// Reactive theme mode provider
 final themeModeProvider = FutureProvider<ThemeMode>((ref) async {
@@ -153,6 +154,7 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
 
   int _currentTab = 0;
   HotKey? _registeredHotKey;
+  DateTime? _lastSyncAt;
 
   @override
   void initState() {
@@ -297,13 +299,41 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
   }
 
   @override
+  void onWindowFocus() {
+    _pullAndRefreshIfNeeded();
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      final sync = ref.read(syncServiceProvider);
-      sync?.pullSearchHistory();
-      sync?.syncReviewData();
-      sync?.pullSettings();
+      _pullAndRefreshIfNeeded();
     }
+  }
+
+  /// Pull remote data and refresh UI providers. Debounced to avoid
+  /// duplicate syncs when both onWindowFocus and resumed fire together.
+  void _pullAndRefreshIfNeeded() {
+    final now = DateTime.now();
+    if (_lastSyncAt != null && now.difference(_lastSyncAt!).inSeconds < 30) return;
+    _lastSyncAt = now;
+
+    final sync = ref.read(syncServiceProvider);
+    if (sync == null) return;
+
+    sync.pullSearchHistory();
+    sync.syncReviewData().then((_) {
+      ref.invalidate(reviewSummaryProvider);
+    });
+    // Push any settings that failed to sync while offline, then pull
+    sync.pushDirtySettings().then((_) {
+      sync.pullSettings().then((pulled) {
+        if (pulled > 0) {
+          ref.invalidate(themeModeProvider);
+          ref.invalidate(reviewFilterProvider);
+          ref.invalidate(reviewSummaryProvider);
+        }
+      });
+    });
   }
 
   @override

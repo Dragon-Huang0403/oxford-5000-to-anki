@@ -24,16 +24,21 @@ class MainFlutterWindow: NSPanel {
     windowChannel!.setMethodCallHandler { [weak self] (call, result) in
       switch call.method {
       case "prepareForShow":
+        NSApp.setActivationPolicy(.regular)
+        self?.isFloatingPanel = true
         self?.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .transient]
         self?.level = .popUpMenu
         NSApp.activate(ignoringOtherApps: true)
         self?.makeKey()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
           self?.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+          self?.isFloatingPanel = false
+          self?.level = .normal
         }
         result(nil)
       case "resetLevel":
         self?.level = .floating
+        NSApp.setActivationPolicy(.accessory)
         result(nil)
       default:
         result(FlutterMethodNotImplemented)

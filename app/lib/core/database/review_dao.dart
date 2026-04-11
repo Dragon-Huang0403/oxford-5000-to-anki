@@ -92,10 +92,10 @@ class ReviewDao {
     return result.data['cnt'] as int;
   }
 
-  /// Count cards reviewed today.
+  /// Count cards reviewed today (local day boundary).
   Future<int> countReviewedToday() async {
-    final todayStart = DateTime.now().toUtc();
-    final startOfDay = DateTime.utc(todayStart.year, todayStart.month, todayStart.day).toIso8601String();
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day).toUtc().toIso8601String();
     final result = await _db.customSelect(
       'SELECT COUNT(*) as cnt FROM review_logs WHERE reviewed_at >= ?',
       variables: [Variable.withString(startOfDay)],
@@ -104,10 +104,10 @@ class ReviewDao {
     return result.data['cnt'] as int;
   }
 
-  /// Count new cards learned today (first review ever for a card, today).
+  /// Count new cards learned today (first review ever for a card, local day boundary).
   Future<int> countNewLearnedToday() async {
-    final todayStart = DateTime.now().toUtc();
-    final startOfDay = DateTime.utc(todayStart.year, todayStart.month, todayStart.day).toIso8601String();
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day).toUtc().toIso8601String();
     final result = await _db.customSelect(
       '''SELECT COUNT(DISTINCT card_id) as cnt FROM review_logs
          WHERE reviewed_at >= ?

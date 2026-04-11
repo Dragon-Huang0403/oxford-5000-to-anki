@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../app.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/sync/sync_provider.dart';
 import '../../../main.dart';
+import '../../review/providers/review_providers.dart';
 
 class AccountScreen extends ConsumerStatefulWidget {
   const AccountScreen({super.key});
@@ -57,14 +59,24 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     if (syncService == null) return;
     setState(() { _syncing = true; _syncResult = null; });
     try {
-      final result = await syncService.syncSearchHistory();
-      setState(() {
-        _syncResult = 'Pushed ${result.pushed}, pulled ${result.pulled}';
-      });
+      // Push local data first, then pull remote
+      await syncService.pushAllSettings();
+      await syncService.syncSearchHistory();
+      await syncService.syncReviewData();
+      final settingsPulled = await syncService.pullSettings();
+
+      // Refresh UI providers with synced data
+      ref.invalidate(reviewSummaryProvider);
+      if (settingsPulled > 0) {
+        ref.invalidate(themeModeProvider);
+        ref.invalidate(reviewFilterProvider);
+      }
+
+      if (mounted) setState(() { _syncResult = 'Sync complete'; });
     } catch (e) {
-      setState(() { _syncResult = 'Sync failed: $e'; });
+      if (mounted) setState(() { _syncResult = 'Sync failed: $e'; });
     } finally {
-      setState(() { _syncing = false; });
+      if (mounted) setState(() { _syncing = false; });
     }
   }
 

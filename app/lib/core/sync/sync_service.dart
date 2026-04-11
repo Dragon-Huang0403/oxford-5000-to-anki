@@ -477,11 +477,44 @@ class SyncService {
   }
 
   /// Full sync for review data: push then pull.
+  /// If a remote clear is pending (from an offline "clear progress"), execute it
+  /// first so stale data doesn't get pulled back.
   Future<void> syncReviewData() async {
+    if (await _hasPendingReviewClear()) {
+      try {
+        await _executeClearRemoteReviewData();
+        // Don't pull — local is empty and remote was just cleared
+        return;
+      } catch (_) {
+        // Still offline — skip the rest to avoid pulling stale data back
+        return;
+      }
+    }
     await pushAllUnsyncedReviewCards();
     await pushAllUnsyncedReviewLogs();
     await pullReviewCards();
     await pullReviewLogs();
+  }
+
+  /// Delete all review cards and logs from Supabase and reset sync timestamps.
+  /// On failure, sets a pending flag so the clear is retried on next sync.
+  Future<void> clearRemoteReviewData() async {
+    if (_userId == null) return;
+    try {
+      await _executeClearRemoteReviewData();
+    } catch (e) {
+      debugPrint('Clear remote failed, will retry on next sync: $e');
+      await _setPendingReviewClear(true);
+    }
+  }
+
+  Future<void> _executeClearRemoteReviewData() async {
+    if (_userId == null) return;
+    await _supabase.from('review_logs').delete().eq('user_id', _userId!);
+    await _supabase.from('review_cards').delete().eq('user_id', _userId!);
+    await _setLastSyncAt('review_cards', '');
+    await _setLastSyncAt('review_logs', '');
+    await _setPendingReviewClear(false);
   }
 
   // ── Settings Sync ──────────────────────────────────────────────────────
@@ -499,6 +532,7 @@ class SyncService {
   ];
 
   /// Push a single setting to Supabase (fire-and-forget after change).
+  /// On failure, marks the key as dirty for retry on next sync.
   Future<void> pushSetting(String key, String value) async {
     if (_userId == null || !_syncedSettingKeys.contains(key)) return;
     try {
@@ -508,8 +542,40 @@ class SyncService {
         'value': value,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       });
+      await _removeDirtySetting(key);
     } catch (e) {
-      debugPrint('Push setting "$key" failed: $e');
+      debugPrint('Push setting "$key" failed, marking dirty: $e');
+      await _addDirtySetting(key);
+    }
+  }
+
+  /// Push any settings that failed to sync previously.
+  Future<void> pushDirtySettings() async {
+    if (_userId == null) return;
+    final dirty = await _getDirtySettings();
+    if (dirty.isEmpty) return;
+
+    final now = DateTime.now().toUtc().toIso8601String();
+    for (final key in dirty) {
+      final row = await (_db.select(_db.settings)
+            ..where((t) => t.key.equals(key)))
+          .getSingleOrNull();
+      if (row == null) {
+        await _removeDirtySetting(key);
+        continue;
+      }
+      try {
+        await _supabase.from('user_settings').upsert({
+          'user_id': _userId,
+          'key': key,
+          'value': row.value,
+          'updated_at': now,
+        });
+        await _removeDirtySetting(key);
+      } catch (e) {
+        // Still offline — will retry next sync
+        break;
+      }
     }
   }
 
@@ -592,6 +658,59 @@ class SyncService {
       SyncMetaCompanion.insert(
         key: '${table}_last_sync_at',
         value: timestamp,
+      ),
+    );
+  }
+
+  // ── Dirty settings tracking ─────────────────────────────────────────────
+
+  static const _dirtySettingsKey = 'dirty_settings';
+
+  Future<Set<String>> _getDirtySettings() async {
+    final rows = await _db.customSelect(
+      'SELECT value FROM sync_meta WHERE key = ?',
+      variables: [Variable.withString(_dirtySettingsKey)],
+      readsFrom: {_db.syncMeta},
+    ).get();
+    if (rows.isEmpty) return {};
+    final csv = rows.first.data['value'] as String;
+    return csv.isEmpty ? {} : csv.split(',').toSet();
+  }
+
+  Future<void> _addDirtySetting(String key) async {
+    final dirty = await _getDirtySettings();
+    dirty.add(key);
+    await _db.into(_db.syncMeta).insertOnConflictUpdate(
+      SyncMetaCompanion.insert(key: _dirtySettingsKey, value: dirty.join(',')),
+    );
+  }
+
+  Future<void> _removeDirtySetting(String key) async {
+    final dirty = await _getDirtySettings();
+    if (!dirty.remove(key)) return;
+    await _db.into(_db.syncMeta).insertOnConflictUpdate(
+      SyncMetaCompanion.insert(key: _dirtySettingsKey, value: dirty.join(',')),
+    );
+  }
+
+  // ── Pending review clear tracking ───────────────────────────────────────
+
+  static const _pendingReviewClearKey = 'pending_review_clear';
+
+  Future<bool> _hasPendingReviewClear() async {
+    final rows = await _db.customSelect(
+      'SELECT value FROM sync_meta WHERE key = ?',
+      variables: [Variable.withString(_pendingReviewClearKey)],
+      readsFrom: {_db.syncMeta},
+    ).get();
+    return rows.isNotEmpty && rows.first.data['value'] == 'true';
+  }
+
+  Future<void> _setPendingReviewClear(bool pending) async {
+    await _db.into(_db.syncMeta).insertOnConflictUpdate(
+      SyncMetaCompanion.insert(
+        key: _pendingReviewClearKey,
+        value: pending ? 'true' : '',
       ),
     );
   }

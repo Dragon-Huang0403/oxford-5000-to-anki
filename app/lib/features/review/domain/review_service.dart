@@ -47,6 +47,11 @@ class ReviewService {
     final now = DateTime.now().toUtc();
     final result = scheduler.reviewCard(fsrsCard, rating, reviewDateTime: now, reviewDuration: reviewDurationMs);
 
+    final elapsedDays = dbCard.lastReview != null
+        ? now.difference(DateTime.parse(dbCard.lastReview!)).inDays
+        : 0;
+    final scheduledDays = result.card.due.difference(now).inDays;
+
     final updatedCard = ReviewCardsCompanion(
       id: Value(dbCard.id),
       entryId: Value(dbCard.entryId),
@@ -55,6 +60,8 @@ class ReviewService {
       due: Value(result.card.due.toIso8601String()),
       stability: Value(result.card.stability ?? 0),
       difficulty: Value(result.card.difficulty ?? 0),
+      elapsedDays: Value(elapsedDays),
+      scheduledDays: Value(scheduledDays),
       state: Value(result.card.state.value),
       step: Value(result.card.step),
       lastReview: Value(result.card.lastReview?.toIso8601String()),
@@ -70,10 +77,8 @@ class ReviewService {
       due: result.card.due.toIso8601String(),
       stability: result.card.stability ?? 0,
       difficulty: result.card.difficulty ?? 0,
-      elapsedDays: result.card.lastReview != null
-          ? now.difference(result.card.lastReview!).inDays
-          : 0,
-      scheduledDays: result.card.due.difference(now).inDays,
+      elapsedDays: elapsedDays,
+      scheduledDays: scheduledDays,
       reviewDuration: Value(reviewDurationMs),
     );
 
@@ -92,6 +97,8 @@ class ReviewService {
     final cardId = _uuid.v4();
     final result = scheduler.reviewCard(fsrsCard, rating, reviewDateTime: now);
 
+    final scheduledDays = result.card.due.difference(now).inDays;
+
     final card = ReviewCardsCompanion.insert(
       id: cardId,
       entryId: entryId,
@@ -100,6 +107,7 @@ class ReviewService {
       due: result.card.due.toIso8601String(),
       stability: Value(result.card.stability ?? 0),
       difficulty: Value(result.card.difficulty ?? 0),
+      scheduledDays: Value(scheduledDays),
       state: Value(result.card.state.value),
       step: Value(result.card.step),
       lastReview: Value(result.card.lastReview?.toIso8601String()),
@@ -114,7 +122,7 @@ class ReviewService {
       stability: result.card.stability ?? 0,
       difficulty: result.card.difficulty ?? 0,
       elapsedDays: 0,
-      scheduledDays: result.card.due.difference(now).inDays,
+      scheduledDays: scheduledDays,
     );
 
     return (card: card, log: log);
