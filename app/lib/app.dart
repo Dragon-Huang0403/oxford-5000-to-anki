@@ -299,6 +299,12 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
   }
 
   @override
+  void onWindowBlur() {
+    _windowChannel.invokeMethod('resetLevel');
+    windowManager.hide();
+  }
+
+  @override
   void onWindowFocus() {
     _pullAndRefreshIfNeeded();
   }
