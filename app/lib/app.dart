@@ -33,11 +33,15 @@ class _FocusTriggerNotifier extends Notifier<int> {
   void increment() => state++;
 }
 
-/// Reads the hotkey setting from DB. Invalidate to reload after change.
-final quickSearchHotKeyProvider = FutureProvider<String>((ref) async {
-  final dao = ref.read(settingsDaoProvider);
-  return dao.getQuickSearchHotKey();
-});
+/// Incremented by settings screen to trigger hotkey re-registration.
+final hotKeyChangeTrigger =
+    NotifierProvider<_HotKeyChangeNotifier, int>(_HotKeyChangeNotifier.new);
+
+class _HotKeyChangeNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+  void fire() => state++;
+}
 
 /// Reads the tray icon setting from DB. Invalidate to reload after change.
 final showTrayIconProvider = FutureProvider<bool>((ref) async {
@@ -318,8 +322,9 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
   @override
   Widget build(BuildContext context) {
     if (Platform.isMacOS) {
-      ref.listen(quickSearchHotKeyProvider, (prev, next) {
-        next.whenData((json) => _registerHotKey(json));
+      ref.listen(hotKeyChangeTrigger, (prev, next) async {
+        final json = await ref.read(settingsDaoProvider).getQuickSearchHotKey();
+        await _registerHotKey(json);
       });
       ref.listen(showTrayIconProvider, (prev, next) {
         next.whenData((show) {
