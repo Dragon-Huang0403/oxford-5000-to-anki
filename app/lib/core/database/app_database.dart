@@ -365,12 +365,50 @@ class DictionaryDatabase {
 
   Future<List<Map<String, dynamic>>> getEntriesByCefr(String level, {int limit = 100, int offset = 0}) async {
     final results = await _db.customSelect(
-      'SELECT * FROM entries WHERE cefr_level = ? ORDER BY headword LIMIT ? OFFSET ?',
+      'SELECT * FROM entries WHERE cefr_level = ? ORDER BY headword, entry_index LIMIT ? OFFSET ?',
       variables: [Variable.withString(level), Variable.withInt(limit), Variable.withInt(offset)],
     ).get();
     return results.map((r) => r.data).toList();
   }
 
+  /// Get paginated entries from an Oxford word list.
+  Future<List<Map<String, dynamic>>> getEntriesByOxfordList({
+    required bool ox3000,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final col = ox3000 ? 'ox3000' : 'ox5000';
+    final results = await _db.customSelect(
+      'SELECT * FROM entries WHERE $col = 1 ORDER BY headword, entry_index LIMIT ? OFFSET ?',
+      variables: [Variable.withInt(limit), Variable.withInt(offset)],
+    ).get();
+    return results.map((r) => r.data).toList();
+  }
+
+  /// Get paginated entries matching a CEFR/Oxford filter (OR logic).
+  Future<List<Map<String, dynamic>>> getFilteredEntries({
+    List<String> cefrLevels = const [],
+    bool ox3000 = false,
+    bool ox5000 = false,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final conditions = <String>[];
+    final vars = <Variable>[];
+    for (final level in cefrLevels) {
+      conditions.add('cefr_level = ?');
+      vars.add(Variable.withString(level));
+    }
+    if (ox3000) conditions.add('ox3000 = 1');
+    if (ox5000) conditions.add('ox5000 = 1');
+    if (conditions.isEmpty) return [];
+    final where = conditions.join(' OR ');
+    final results = await _db.customSelect(
+      'SELECT * FROM entries WHERE $where ORDER BY headword, entry_index LIMIT ? OFFSET ?',
+      variables: [...vars, Variable.withInt(limit), Variable.withInt(offset)],
+    ).get();
+    return results.map((r) => r.data).toList();
+  }
 
   Future<int> countEntries({String? cefrLevel, bool? ox3000, bool? ox5000}) async {
     final conditions = <String>[];
@@ -446,6 +484,79 @@ class DictionaryDatabase {
     final result = await _db.customSelect(
       'SELECT COUNT(*) as cnt FROM entries WHERE $where',
       variables: vars,
+    ).getSingle();
+    return result.data['cnt'] as int;
+  }
+
+  /// Get distinct CEFR levels present in entries matching a filter.
+  Future<List<String>> getDistinctCefrLevelsForFilter({
+    List<String> cefrLevels = const [],
+    bool ox3000 = false,
+    bool ox5000 = false,
+  }) async {
+    final conditions = <String>[];
+    final vars = <Variable>[];
+    for (final level in cefrLevels) {
+      conditions.add('cefr_level = ?');
+      vars.add(Variable.withString(level));
+    }
+    if (ox3000) conditions.add('ox3000 = 1');
+    if (ox5000) conditions.add('ox5000 = 1');
+    if (conditions.isEmpty) return [];
+    final where = conditions.join(' OR ');
+    final results = await _db.customSelect(
+      "SELECT DISTINCT cefr_level FROM entries WHERE ($where) AND cefr_level != '' ORDER BY cefr_level",
+      variables: vars,
+    ).get();
+    return results.map((r) => r.data['cefr_level'] as String).toList();
+  }
+
+  /// Get paginated entries matching a filter for a specific CEFR level.
+  Future<List<Map<String, dynamic>>> getFilteredEntriesByCefr(
+    String cefrLevel, {
+    List<String> cefrLevels = const [],
+    bool ox3000 = false,
+    bool ox5000 = false,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final filterConditions = <String>[];
+    final vars = <Variable>[];
+    for (final level in cefrLevels) {
+      filterConditions.add('cefr_level = ?');
+      vars.add(Variable.withString(level));
+    }
+    if (ox3000) filterConditions.add('ox3000 = 1');
+    if (ox5000) filterConditions.add('ox5000 = 1');
+    if (filterConditions.isEmpty) return [];
+    final where = filterConditions.join(' OR ');
+    final results = await _db.customSelect(
+      'SELECT * FROM entries WHERE ($where) AND cefr_level = ? ORDER BY headword, entry_index LIMIT ? OFFSET ?',
+      variables: [...vars, Variable.withString(cefrLevel), Variable.withInt(limit), Variable.withInt(offset)],
+    ).get();
+    return results.map((r) => r.data).toList();
+  }
+
+  /// Count entries matching a filter for a specific CEFR level.
+  Future<int> countFilteredEntriesByCefr(
+    String cefrLevel, {
+    List<String> cefrLevels = const [],
+    bool ox3000 = false,
+    bool ox5000 = false,
+  }) async {
+    final filterConditions = <String>[];
+    final vars = <Variable>[];
+    for (final level in cefrLevels) {
+      filterConditions.add('cefr_level = ?');
+      vars.add(Variable.withString(level));
+    }
+    if (ox3000) filterConditions.add('ox3000 = 1');
+    if (ox5000) filterConditions.add('ox5000 = 1');
+    if (filterConditions.isEmpty) return 0;
+    final where = filterConditions.join(' OR ');
+    final result = await _db.customSelect(
+      'SELECT COUNT(*) as cnt FROM entries WHERE ($where) AND cefr_level = ?',
+      variables: [...vars, Variable.withString(cefrLevel)],
     ).getSingle();
     return result.data['cnt'] as int;
   }

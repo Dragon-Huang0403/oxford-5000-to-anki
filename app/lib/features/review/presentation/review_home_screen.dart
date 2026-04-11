@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../providers/review_providers.dart';
 import 'review_session_screen.dart';
+import 'study_words_screen.dart';
 import 'widgets/filter_selector.dart';
 
 class ReviewHomeScreen extends ConsumerWidget {
@@ -17,7 +18,38 @@ class ReviewHomeScreen extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         child: summaryAsync.when(
-          data: (summary) => _buildContent(context, ref, summary, filterAsync, cs),
+          data: (summary) {
+            final hasCards = summary.dueCount > 0 || summary.newAvailable > 0;
+            return Column(
+              children: [
+                Expanded(
+                  child: _buildContent(context, ref, summary, filterAsync, cs),
+                ),
+                if (hasCards)
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: cs.outlineVariant),
+                      ),
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.play_arrow),
+                          label: Text(
+                            'Start Review (${summary.dueCount + summary.newAvailable})',
+                          ),
+                          onPressed: () => _startSession(context, ref),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Error: $e')),
         ),
@@ -32,8 +64,6 @@ class ReviewHomeScreen extends ConsumerWidget {
     AsyncValue filterAsync,
     ColorScheme cs,
   ) {
-    final hasCards = summary.dueCount > 0 || summary.newAvailable > 0;
-
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -62,32 +92,15 @@ class ReviewHomeScreen extends ConsumerWidget {
         Card(
           child: Padding(
             padding: const EdgeInsets.all(20),
-            child: Column(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _CountColumn('Due', summary.dueCount,
-                        color: summary.dueCount > 0 ? cs.error : cs.onSurfaceVariant),
-                    _CountColumn('New', summary.newAvailable,
-                        color: summary.newAvailable > 0 ? cs.primary : cs.onSurfaceVariant),
-                    _CountColumn('Reviewed', summary.reviewedToday,
-                        color: cs.onSurfaceVariant),
-                  ],
-                ),
-                if (hasCards) ...[
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      icon: const Icon(Icons.play_arrow),
-                      label: Text(
-                        'Start Review (${summary.dueCount + summary.newAvailable})',
-                      ),
-                      onPressed: () => _startSession(context, ref),
-                    ),
-                  ),
-                ],
+                _CountColumn('Due', summary.dueCount,
+                    color: summary.dueCount > 0 ? cs.error : cs.onSurfaceVariant),
+                _CountColumn('New', summary.newAvailable,
+                    color: summary.newAvailable > 0 ? cs.primary : cs.onSurfaceVariant),
+                _CountColumn('Reviewed', summary.reviewedToday,
+                    color: cs.onSurfaceVariant),
               ],
             ),
           ),
@@ -115,46 +128,65 @@ class ReviewHomeScreen extends ConsumerWidget {
               );
             }
             return Card(
-              child: InkWell(
-                onTap: () => FilterSelector.show(context),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+              child: Column(
+                children: [
+                  InkWell(
+                    onTap: () => FilterSelector.show(context),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Active Filter',
-                              style: TextStyle(fontWeight: FontWeight.w600)),
-                          const Spacer(),
-                          Icon(Icons.edit, size: 18, color: cs.onSurfaceVariant),
+                          Row(
+                            children: [
+                              const Text('Active Filter',
+                                  style: TextStyle(fontWeight: FontWeight.w600)),
+                              const Spacer(),
+                              Icon(Icons.edit, size: 18, color: cs.onSurfaceVariant),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              ...filter.cefrLevels.map((l) => Chip(
+                                    label: Text(l.toUpperCase()),
+                                    visualDensity: VisualDensity.compact,
+                                  )),
+                              if (filter.ox3000)
+                                const Chip(
+                                  label: Text('Oxford 3000'),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              if (filter.ox5000)
+                                const Chip(
+                                  label: Text('Oxford 5000'),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                            ],
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          ...filter.cefrLevels.map((l) => Chip(
-                                label: Text(l.toUpperCase()),
-                                visualDensity: VisualDensity.compact,
-                              )),
-                          if (filter.ox3000)
-                            const Chip(
-                              label: Text('Oxford 3000'),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          if (filter.ox5000)
-                            const Chip(
-                              label: Text('Oxford 5000'),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: Icon(Icons.list_alt, color: cs.primary),
+                    title: const Text('Browse Words'),
+                    trailing: const Icon(Icons.chevron_right),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const StudyWordsScreen(),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             );
           },
