@@ -310,7 +310,7 @@ class EntryCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Sense header
+          // Sense header + definition on same line
           Wrap(
             spacing: 6,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -338,10 +338,13 @@ class EntryCard extends ConsumerWidget {
                     color: Colors.grey,
                   ),
                 ),
+              if (definition.isNotEmpty)
+                TappableText(
+                  text: definition,
+                  onWordTap: (w) => onWordTap?.call(w),
+                ),
             ],
           ),
-          const SizedBox(height: 2),
-          TappableText(text: definition, onWordTap: (w) => onWordTap?.call(w)),
           if (definitionZh.isNotEmpty)
             Text(
               definitionZh,
