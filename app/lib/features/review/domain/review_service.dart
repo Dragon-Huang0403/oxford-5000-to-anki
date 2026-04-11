@@ -80,6 +80,7 @@ class ReviewService {
       elapsedDays: elapsedDays,
       scheduledDays: scheduledDays,
       reviewDuration: Value(reviewDurationMs),
+      reviewedAt: Value(now.toIso8601String()),
     );
 
     return (card: updatedCard, log: log);
@@ -123,6 +124,7 @@ class ReviewService {
       difficulty: result.card.difficulty ?? 0,
       elapsedDays: 0,
       scheduledDays: scheduledDays,
+      reviewedAt: Value(now.toIso8601String()),
     );
 
     return (card: card, log: log);

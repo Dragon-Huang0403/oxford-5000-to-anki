@@ -210,7 +210,9 @@ class SyncService {
         'elapsed_days': row['elapsed_days'],
         'scheduled_days': row['scheduled_days'],
         'review_duration': row['review_duration'],
-        'reviewed_at': row['reviewed_at'],
+        'reviewed_at': (row['reviewed_at'] as String?)?.isNotEmpty == true
+            ? row['reviewed_at']
+            : DateTime.now().toUtc().toIso8601String(),
       });
 
       await _db.customUpdate(
@@ -296,7 +298,9 @@ class SyncService {
           'elapsed_days': data['elapsed_days'],
           'scheduled_days': data['scheduled_days'],
           'review_duration': data['review_duration'],
-          'reviewed_at': data['reviewed_at'],
+          'reviewed_at': (data['reviewed_at'] as String?)?.isNotEmpty == true
+              ? data['reviewed_at']
+              : DateTime.now().toUtc().toIso8601String(),
         });
 
         await _db.customUpdate(
@@ -650,7 +654,9 @@ class SyncService {
       variables: [Variable.withString('${table}_last_sync_at')],
       readsFrom: {_db.syncMeta},
     ).get();
-    return rows.isEmpty ? null : rows.first.data['value'] as String?;
+    if (rows.isEmpty) return null;
+    final value = rows.first.data['value'] as String?;
+    return (value == null || value.isEmpty) ? null : value;
   }
 
   Future<void> _setLastSyncAt(String table, String timestamp) async {
