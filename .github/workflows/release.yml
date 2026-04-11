@@ -29,6 +29,9 @@ jobs:
           echo "${{ secrets.FIREBASE_OPTIONS_DART }}" | base64 -d > lib/firebase_options.dart
           echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
 
+      - name: Download dictionary database
+        run: curl -fSL -o assets/oald10.db "${{ secrets.R2_BASE_URL }}/db/oald10.db"
+
       - name: Build APK
         run: >-
           flutter build apk --release
@@ -60,6 +63,9 @@ jobs:
         run: |
           echo "${{ secrets.FIREBASE_OPTIONS_DART }}" | base64 -d > lib/firebase_options.dart
           echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST_MACOS }}" | base64 -d > macos/Runner/GoogleService-Info.plist
+
+      - name: Download dictionary database
+        run: curl -fSL -o assets/oald10.db "${{ secrets.R2_BASE_URL }}/db/oald10.db"
 
       - name: Disable code signing for CI
         run: |
