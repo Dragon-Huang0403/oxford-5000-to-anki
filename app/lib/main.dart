@@ -20,23 +20,76 @@ void main() async {
     await windowManager.ensureInitialized();
     await windowManager.setPreventClose(true);
   }
-  await initDatabases();
-
-  // Firebase + Supabase init (skip gracefully if not configured)
-  try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    if (supabaseAnonKey.isNotEmpty) {
-      await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
-      await GoogleSignIn.instance.initialize();
-      syncEnabled = true;
-    }
-  } catch (e) {
-    debugPrint('Sync services not available: $e');
-  }
 
   runApp(
     const ProviderScope(
-      child: DeckionaryApp(),
+      child: AppLoader(),
     ),
   );
+}
+
+class AppLoader extends StatefulWidget {
+  const AppLoader({super.key});
+
+  @override
+  State<AppLoader> createState() => _AppLoaderState();
+}
+
+class _AppLoaderState extends State<AppLoader> {
+  late final Future<void> _initFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _initFuture = _initialize();
+  }
+
+  Future<void> _initialize() async {
+    await initDatabases();
+    try {
+      await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform);
+      if (supabaseAnonKey.isNotEmpty) {
+        await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+        await GoogleSignIn.instance.initialize();
+        syncEnabled = true;
+      }
+    } catch (e) {
+      debugPrint('Sync services not available: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder(
+      future: _initFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFF0057A8),
+              ),
+              useMaterial3: true,
+            ),
+            home: const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+        if (snapshot.hasError) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: Scaffold(
+              body: Center(
+                child: Text('Failed to start: ${snapshot.error}'),
+              ),
+            ),
+          );
+        }
+        return const DeckionaryApp();
+      },
+    );
+  }
 }
