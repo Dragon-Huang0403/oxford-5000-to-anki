@@ -38,6 +38,20 @@ class EntryCard extends ConsumerWidget {
               // Synonyms
               if (entry.synonyms.isNotEmpty)
                 _buildCollapsible(context, 'Synonyms', _buildSynonyms(context)),
+              // Idioms
+              if (entry.idioms.isNotEmpty)
+                _buildCollapsible(
+                  context,
+                  'Idioms',
+                  _buildIdioms(context, ref),
+                ),
+              // Word origin
+              if (entry.wordOrigin != null)
+                _buildCollapsible(
+                  context,
+                  'Word Origin',
+                  _buildWordOrigin(context),
+                ),
               // Collocations
               if (entry.collocations.isNotEmpty)
                 _buildCollapsible(
@@ -52,21 +66,13 @@ class EntryCard extends ConsumerWidget {
                   'Phrasal Verbs',
                   _buildPhrasalVerbs(context),
                 ),
-              // Idioms
-              if (entry.idioms.isNotEmpty) _buildIdioms(context, ref),
               // Extra examples
               if (entry.extraExamples.isNotEmpty)
                 _buildCollapsible(
                   context,
-                  'Extra Examples (${entry.extraExamples.length})',
+                  'Extra Examples',
                   _buildExtraExamples(context),
-                ),
-              // Word origin
-              if (entry.wordOrigin != null)
-                _buildCollapsible(
-                  context,
-                  'Word Origin',
-                  _buildWordOrigin(context),
+                  initiallyExpanded: false,
                 ),
             ],
           ),
@@ -684,33 +690,8 @@ class EntryCard extends ConsumerWidget {
   Widget _buildIdioms(BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 16, bottom: 8),
-          child: Container(
-            padding: const EdgeInsets.only(bottom: 4),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Theme.of(context).dividerColor),
-              ),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  'IDIOMS',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        ...entry.idioms.map((idiom) => _buildIdiomItem(context, idiom, ref)),
-      ],
+      children:
+          entry.idioms.map((idiom) => _buildIdiomItem(context, idiom, ref)).toList(),
     );
   }
 
@@ -810,7 +791,12 @@ class EntryCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildCollapsible(BuildContext context, String title, Widget child) {
+  Widget _buildCollapsible(
+    BuildContext context,
+    String title,
+    Widget child, {
+    bool initiallyExpanded = true,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: ExpansionTile(
@@ -822,6 +808,7 @@ class EntryCard extends ConsumerWidget {
         childrenPadding: const EdgeInsets.only(left: 8, bottom: 8),
         expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
         dense: true,
+        initiallyExpanded: initiallyExpanded,
         children: [child],
       ),
     );
