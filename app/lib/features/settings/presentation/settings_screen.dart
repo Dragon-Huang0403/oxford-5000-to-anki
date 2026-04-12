@@ -138,10 +138,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Center(
               child: Text(
                 'v$appVersion${isDevBuild ? '-dev' : ''} · ${buildCommit.length > 7 ? buildCommit.substring(0, 7) : buildCommit}',
-                style: TextStyle(
-                  color: cs.onSurfaceVariant,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
               ),
             ),
             const SizedBox(height: 24),

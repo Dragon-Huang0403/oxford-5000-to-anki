@@ -155,10 +155,10 @@ class _SearchHistoryListState extends State<SearchHistoryList> {
             ],
           ),
           onTap: () => widget.onTap(
-                word,
-                pos: pos.isNotEmpty ? pos : null,
-                entryId: item.entryId,
-              ),
+            word,
+            pos: pos.isNotEmpty ? pos : null,
+            entryId: item.entryId,
+          ),
           contentPadding: EdgeInsets.zero,
           visualDensity: VisualDensity.compact,
         );

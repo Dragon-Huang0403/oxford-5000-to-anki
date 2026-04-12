@@ -379,9 +379,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
         _saveToHistory(results, q);
         // Navigate from history: auto-select matching entry by ID
         if (_pendingEntryId != null && results.isNotEmpty) {
-          final idx = results.indexWhere(
-            (r) => r.entry.id == _pendingEntryId,
-          );
+          final idx = results.indexWhere((r) => r.entry.id == _pendingEntryId);
           _pendingEntryId = null;
           _pendingPos = null;
           if (idx >= 0) {
@@ -483,7 +481,9 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
                               // Show options list
                               return EntryOptionsList(
                                 results: searchResults,
-                                highlightedIndex: Platform.isMacOS ? _highlightedIndex : -1,
+                                highlightedIndex: Platform.isMacOS
+                                    ? _highlightedIndex
+                                    : -1,
                                 onSelect: _selectEntry,
                               );
                             },

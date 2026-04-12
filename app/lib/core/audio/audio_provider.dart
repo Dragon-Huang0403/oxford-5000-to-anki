@@ -37,10 +37,7 @@ class OfflineAudioNotifier extends AsyncNotifier<OfflineAudioState> {
     final audio = ref.read(audioServiceProvider);
     final count = await audio.getCachedFileCount();
     final complete = await audio.isDownloadComplete();
-    return OfflineAudioState(
-      cachedFiles: count,
-      allPacksComplete: complete,
-    );
+    return OfflineAudioState(cachedFiles: count, allPacksComplete: complete);
   }
 
   Future<void> downloadAll() async {
