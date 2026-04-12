@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import '../config.dart';
+import '../network/http_retry.dart';
 
 /// Local SQLite database for cached audio BLOBs.
 /// Same schema as the server's audio_files table.
@@ -238,9 +239,12 @@ class AudioService {
     final client = http.Client();
 
     try {
-      // Fetch manifest
-      final manifestRes = await client.get(
+      // Fetch manifest with retry
+      final manifestRes = await httpGetWithRetry(
+        client,
         Uri.parse('$packsUrl/manifest.json'),
+        maxAttempts: 3,
+        timeout: const Duration(seconds: 15),
       );
       if (manifestRes.statusCode != 200) {
         throw Exception('Failed to fetch manifest: ${manifestRes.statusCode}');
@@ -270,14 +274,27 @@ class AudioService {
 
         final futures = batch.map((pack) async {
           final packName = pack['name'] as String;
-          final res = await client.get(Uri.parse('$packsUrl/$packName'));
-          if (res.statusCode != 200) {
-            debugPrint('AudioService: pack $packName failed ${res.statusCode}');
+          try {
+            final res = await httpGetWithRetry(
+              client,
+              Uri.parse('$packsUrl/$packName'),
+              maxAttempts: 3,
+              timeout: const Duration(seconds: 120),
+              baseDelay: const Duration(seconds: 2),
+            );
+            if (res.statusCode != 200) {
+              debugPrint(
+                'AudioService: pack $packName failed ${res.statusCode}',
+              );
+              return (0, 0);
+            }
+            final extracted = await _extractTar(res.bodyBytes);
+            await audioDB.markPackComplete(packName);
+            return (extracted, res.bodyBytes.length);
+          } catch (e) {
+            debugPrint('AudioService: pack $packName error after retries: $e');
             return (0, 0);
           }
-          final extracted = await _extractTar(res.bodyBytes);
-          await audioDB.markPackComplete(packName);
-          return (extracted, res.bodyBytes.length);
         });
 
         final results = await Future.wait(futures);
