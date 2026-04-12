@@ -120,18 +120,20 @@ class SearchHistoryDao {
     );
   }
 
-  /// Soft-delete all history entries for a given headword (or query if no headword)
-  Future<void> deleteByHeadword(String headword) async {
+  /// Soft-delete all history entries for a given headword+pos combination
+  Future<void> deleteByHeadwordAndPos(String headword, String pos) async {
     final now = DateTime.now().toUtc().toIso8601String();
     await _db.customUpdate(
       '''UPDATE search_history SET deleted_at = ?, updated_at = ?, synced = 0
          WHERE deleted_at IS NULL
-         AND (headword = ? OR (headword IS NULL AND query = ?))''',
+         AND (headword = ? OR (headword IS NULL AND query = ?))
+         AND pos = ?''',
       variables: [
         Variable.withString(now),
         Variable.withString(now),
         Variable.withString(headword),
         Variable.withString(headword),
+        Variable.withString(pos),
       ],
       updates: {_db.searchHistory},
     );

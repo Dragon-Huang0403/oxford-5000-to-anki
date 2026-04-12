@@ -498,7 +498,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
         onDelete: (item) async {
           await ref
               .read(searchHistoryDaoProvider)
-              .deleteByHeadword(item.headword ?? item.query);
+              .deleteByHeadwordAndPos(item.headword ?? item.query, item.pos);
           ref.read(syncServiceProvider)?.pushAllUnsynced();
         },
       );
