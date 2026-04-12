@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../../core/database/app_database.dart';
 
-class SearchHistoryList extends StatelessWidget {
+class SearchHistoryList extends StatefulWidget {
   final List<SearchHistoryData> history;
+  final int highlightedIndex;
   final ScrollController scrollController;
   final void Function(String word, {String? pos}) onTap;
   final VoidCallback onClearAll;
@@ -11,6 +12,7 @@ class SearchHistoryList extends StatelessWidget {
   const SearchHistoryList({
     super.key,
     required this.history,
+    required this.highlightedIndex,
     required this.scrollController,
     required this.onTap,
     required this.onClearAll,
@@ -18,12 +20,49 @@ class SearchHistoryList extends StatelessWidget {
   });
 
   @override
+  State<SearchHistoryList> createState() => _SearchHistoryListState();
+}
+
+class _SearchHistoryListState extends State<SearchHistoryList> {
+  static const _estimatedItemHeight = 48.0;
+  static const _headerHeight = 48.0;
+
+  @override
+  void didUpdateWidget(SearchHistoryList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.highlightedIndex != oldWidget.highlightedIndex) {
+      _scrollToHighlighted();
+    }
+  }
+
+  void _scrollToHighlighted() {
+    if (!widget.scrollController.hasClients) return;
+    final targetTop =
+        _headerHeight + widget.highlightedIndex * _estimatedItemHeight;
+    final targetBottom = targetTop + _estimatedItemHeight;
+    final viewport = widget.scrollController.position;
+    if (targetTop < viewport.pixels) {
+      widget.scrollController.animateTo(
+        targetTop,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+      );
+    } else if (targetBottom > viewport.pixels + viewport.viewportDimension) {
+      widget.scrollController.animateTo(
+        targetBottom - viewport.viewportDimension,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return ListView.builder(
-      controller: scrollController,
+      controller: widget.scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: history.length + 1,
+      itemCount: widget.history.length + 1,
       itemBuilder: (context, index) {
         if (index == 0) {
           return Padding(
@@ -55,7 +94,7 @@ class SearchHistoryList extends StatelessWidget {
                         ],
                       ),
                     );
-                    if (confirmed == true) onClearAll();
+                    if (confirmed == true) widget.onClearAll();
                   },
                   child: const Text('Clear all'),
                 ),
@@ -63,27 +102,38 @@ class SearchHistoryList extends StatelessWidget {
             ),
           );
         }
-        final item = history[index - 1];
+        final itemIndex = index - 1;
+        final item = widget.history[itemIndex];
         final word = item.headword ?? item.query;
         final pos = item.pos;
+        final isHighlighted = itemIndex == widget.highlightedIndex;
         return ListTile(
           leading: Icon(Icons.history, color: cs.onSurfaceVariant, size: 20),
           title: Row(
             children: [
-              Text(word),
+              Text(
+                word,
+                style: isHighlighted
+                    ? TextStyle(color: cs.onPrimaryContainer)
+                    : null,
+              ),
               if (pos.isNotEmpty) ...[
                 const SizedBox(width: 6),
                 Text(
                   pos,
                   style: TextStyle(
                     fontSize: 12,
-                    color: cs.primary,
+                    color: isHighlighted ? cs.onPrimaryContainer : cs.primary,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
               ],
             ],
           ),
+          tileColor: isHighlighted ? cs.primaryContainer : null,
+          shape: isHighlighted
+              ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+              : null,
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -96,7 +146,7 @@ class SearchHistoryList extends StatelessWidget {
               const SizedBox(width: 4),
               IconButton(
                 icon: Icon(Icons.close, size: 16, color: cs.onSurfaceVariant),
-                onPressed: () => onDelete(item),
+                onPressed: () => widget.onDelete(item),
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -104,7 +154,7 @@ class SearchHistoryList extends StatelessWidget {
               ),
             ],
           ),
-          onTap: () => onTap(word, pos: pos.isNotEmpty ? pos : null),
+          onTap: () => widget.onTap(word, pos: pos.isNotEmpty ? pos : null),
           contentPadding: EdgeInsets.zero,
           visualDensity: VisualDensity.compact,
         );

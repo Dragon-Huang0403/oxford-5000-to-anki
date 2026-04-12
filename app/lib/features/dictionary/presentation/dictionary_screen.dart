@@ -24,7 +24,8 @@ class DictionaryScreen extends ConsumerStatefulWidget {
   ConsumerState<DictionaryScreen> createState() => _DictionaryScreenState();
 }
 
-class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
+class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
+    with WindowListener {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   final _scrollController = ScrollController();
@@ -46,37 +47,68 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     super.initState();
     _focusNode.onKeyEvent = _handleSearchKeyEvent;
     _historyScrollController.addListener(_onHistoryScroll);
+    windowManager.addListener(this);
   }
 
   KeyEventResult _handleSearchKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+
+    // Arrow keys for search results
     final asyncResults = ref.read(searchResultsProvider);
-    if (!asyncResults.hasValue ||
-        asyncResults.value!.isEmpty ||
-        _selectedEntryIndex != null) {
+    if (asyncResults.hasValue &&
+        asyncResults.value!.isNotEmpty &&
+        _selectedEntryIndex == null) {
+      final results = asyncResults.value!;
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        setState(() {
+          _highlightedIndex = (_highlightedIndex + 1).clamp(
+            0,
+            results.length - 1,
+          );
+        });
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        setState(() {
+          _highlightedIndex = (_highlightedIndex - 1).clamp(
+            0,
+            results.length - 1,
+          );
+        });
+        return KeyEventResult.handled;
+      }
       return KeyEventResult.ignored;
     }
-    final results = asyncResults.value!;
-    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      setState(() {
-        _highlightedIndex = (_highlightedIndex + 1).clamp(
-          0,
-          results.length - 1,
-        );
-      });
-      return KeyEventResult.handled;
+
+    // Arrow keys for search history on home screen
+    final query = ref.read(searchQueryProvider);
+    if (query.isEmpty) {
+      final historyAsync = ref.read(searchHistoryProvider);
+      if (historyAsync.hasValue && historyAsync.value!.isNotEmpty) {
+        final history = historyAsync.value!;
+        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+          setState(() {
+            _highlightedIndex = (_highlightedIndex + 1).clamp(
+              0,
+              history.length - 1,
+            );
+          });
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+          setState(() {
+            _highlightedIndex = (_highlightedIndex - 1).clamp(
+              0,
+              history.length - 1,
+            );
+          });
+          return KeyEventResult.handled;
+        }
+      }
     }
-    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      setState(() {
-        _highlightedIndex = (_highlightedIndex - 1).clamp(
-          0,
-          results.length - 1,
-        );
-      });
-      return KeyEventResult.handled;
-    }
+
     return KeyEventResult.ignored;
   }
 
@@ -148,7 +180,21 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
   /// Called by TextField onSubmitted (Enter key)
   void _onSubmitted(String value) {
     final text = value.trim();
-    if (text.isEmpty) return;
+
+    // If search bar is empty, select highlighted history item
+    if (text.isEmpty) {
+      final historyAsync = ref.read(searchHistoryProvider);
+      if (historyAsync.hasValue && historyAsync.value!.isNotEmpty) {
+        final history = historyAsync.value!;
+        final idx = _highlightedIndex.clamp(0, history.length - 1);
+        final item = history[idx];
+        final word = item.headword ?? item.query;
+        final pos = item.pos;
+        _commitSearch(word, pos: pos.isNotEmpty ? pos : null);
+      }
+      _focusNode.requestFocus();
+      return;
+    }
 
     // If options list is showing and results match current text, select highlighted
     final asyncResults = ref.read(searchResultsProvider);
@@ -170,6 +216,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
 
   @override
   void dispose() {
+    windowManager.removeListener(this);
     _debounce?.cancel();
     _controller.dispose();
     _focusNode.dispose();
@@ -177,6 +224,11 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     _historyScrollController.removeListener(_onHistoryScroll);
     _historyScrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void onWindowFocus() {
+    _focusNode.requestFocus();
   }
 
   void _focusSearchBar() {
@@ -436,6 +488,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     if (historyAsync.hasValue && historyAsync.value!.isNotEmpty) {
       return SearchHistoryList(
         history: historyAsync.value!,
+        highlightedIndex: _highlightedIndex,
         scrollController: _historyScrollController,
         onTap: (word, {String? pos}) => _commitSearch(word, pos: pos),
         onClearAll: () async {
