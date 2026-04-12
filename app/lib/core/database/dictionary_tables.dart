@@ -17,6 +17,8 @@ class DictEntries extends Table {
       text().named('cefr_level').withDefault(const Constant(''))();
   IntColumn get ox3000 => integer().withDefault(const Constant(0))();
   IntColumn get ox5000 => integer().withDefault(const Constant(0))();
+  IntColumn get parentEntryId =>
+      integer().named('parent_entry_id').nullable()();
   BlobColumn get rawHtml => blob().named('raw_html').nullable()();
   TextColumn get createdAt => text()
       .named('created_at')

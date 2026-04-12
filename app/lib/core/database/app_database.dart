@@ -64,20 +64,50 @@ class DictionaryDatabase {
 
   DictionaryDatabase._(this._db);
 
+  /// Must match SCHEMA_VERSION in db/schema.py.
+  /// Bump this when the bundled oald10.db is rebuilt with a new schema.
+  static const _bundledSchemaVersion = 4;
+
   static Future<DictionaryDatabase> open() async {
     final dir = await getApplicationDocumentsDirectory();
     final dbPath = '${dir.path}/dictionary.db';
+    final dbFile = File(dbPath);
 
-    // Copy from bundled asset on first launch
-    if (!File(dbPath).existsSync()) {
+    if (dbFile.existsSync()) {
+      // Re-copy bundled asset if local DB is outdated
+      final localVersion = await _readSchemaVersion(dbPath);
+      if (localVersion < _bundledSchemaVersion) {
+        final bytes = await rootBundle.load('assets/oald10.db');
+        await dbFile.writeAsBytes(bytes.buffer.asUint8List());
+      }
+    } else {
+      // First launch: copy from bundled asset
       final bytes = await rootBundle.load('assets/oald10.db');
-      await File(dbPath).writeAsBytes(bytes.buffer.asUint8List());
+      await dbFile.writeAsBytes(bytes.buffer.asUint8List());
     }
 
-    final db = Database(NativeDatabase.createInBackground(File(dbPath)));
+    final db = Database(NativeDatabase.createInBackground(dbFile));
     // Make read-only
     await db.customStatement('PRAGMA query_only = ON');
     return DictionaryDatabase._(db);
+  }
+
+  /// Read schema_version from a SQLite file's meta table.
+  static Future<int> _readSchemaVersion(String dbPath) async {
+    final db = Database(NativeDatabase.createInBackground(File(dbPath)));
+    try {
+      final rows = await db
+          .customSelect(
+            "SELECT value FROM meta WHERE key = 'schema_version'",
+          )
+          .get();
+      if (rows.isEmpty) return 0;
+      return int.tryParse(rows.first.data['value'] as String? ?? '') ?? 0;
+    } catch (_) {
+      return 0;
+    } finally {
+      await db.close();
+    }
   }
 
   // ── Search ───────────────────────────────────────────────────────────────
@@ -409,6 +439,16 @@ class DictionaryDatabase {
     final results = await _db
         .customSelect(
           'SELECT * FROM extra_examples WHERE entry_id = ? ORDER BY sort_order',
+          variables: [Variable.withInt(entryId)],
+        )
+        .get();
+    return results.map((r) => r.data).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getIdioms(int entryId) async {
+    final results = await _db
+        .customSelect(
+          'SELECT * FROM entries WHERE parent_entry_id = ? ORDER BY entry_index',
           variables: [Variable.withInt(entryId)],
         )
         .get();

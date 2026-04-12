@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 TABLES = """
 CREATE TABLE IF NOT EXISTS sources (
@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS entries (
     cefr_level  TEXT NOT NULL DEFAULT '',
     ox3000      INTEGER NOT NULL DEFAULT 0,
     ox5000      INTEGER NOT NULL DEFAULT 0,
+    parent_entry_id INTEGER REFERENCES entries(id) ON DELETE CASCADE,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -30,6 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_entries_headword ON entries(headword);
 CREATE INDEX IF NOT EXISTS idx_entries_source   ON entries(source_id);
 CREATE INDEX IF NOT EXISTS idx_entries_pos      ON entries(pos);
 CREATE INDEX IF NOT EXISTS idx_entries_cefr     ON entries(cefr_level);
+CREATE INDEX IF NOT EXISTS idx_entries_parent   ON entries(parent_entry_id);
 
 CREATE TABLE IF NOT EXISTS pronunciations (
     id          INTEGER PRIMARY KEY,

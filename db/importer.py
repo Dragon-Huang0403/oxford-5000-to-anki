@@ -69,16 +69,19 @@ def _build_variants(data: bytes, index: dict[str, int]) -> dict[str, str]:
     return variants
 
 
-def _insert_entry(db: sqlite3.Connection, source_id: int, entry: EntryData, entry_index: int) -> int:
+def _insert_entry(
+    db: sqlite3.Connection, source_id: int, entry: EntryData,
+    entry_index: int, parent_entry_id: int | None = None,
+) -> int:
     """Insert one entry and all its children. Returns entry_id."""
     cur = db.execute(
         """INSERT INTO entries
            (source_id, headword, pos, entry_index, ipa_gb, ipa_us,
-            cefr_level, ox3000, ox5000)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            cefr_level, ox3000, ox5000, parent_entry_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (source_id, entry.headword, entry.pos, entry_index,
          entry.ipa_gb, entry.ipa_us, entry.cefr_level,
-         int(entry.ox3000), int(entry.ox5000)),
+         int(entry.ox3000), int(entry.ox5000), parent_entry_id),
     )
     entry_id = cur.lastrowid
 
@@ -249,8 +252,12 @@ def import_all(db_path: str | Path, verbose: bool = False) -> None:
             html = _read_entry_at(body_data, index[headword])
             entries = parse_entry(html)
 
+            parent_id = None
             for entry_index, (entry, _raw_html) in enumerate(entries):
-                _insert_entry(db, source_id, entry, entry_index)
+                if entry.card_type == 'idiom':
+                    _insert_entry(db, source_id, entry, entry_index, parent_entry_id=parent_id)
+                else:
+                    parent_id = _insert_entry(db, source_id, entry, entry_index)
                 total_entries += 1
                 for g in entry.groups:
                     total_senses += len(g.senses)

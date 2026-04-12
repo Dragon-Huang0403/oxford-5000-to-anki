@@ -52,6 +52,8 @@ class EntryCard extends ConsumerWidget {
                   'Phrasal Verbs',
                   _buildPhrasalVerbs(context),
                 ),
+              // Idioms
+              if (entry.idioms.isNotEmpty) _buildIdioms(context, ref),
               // Extra examples
               if (entry.extraExamples.isNotEmpty)
                 _buildCollapsible(
@@ -677,6 +679,92 @@ class EntryCard extends ConsumerWidget {
       );
     }
     return widgets;
+  }
+
+  Widget _buildIdioms(BuildContext context, WidgetRef ref) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 16, bottom: 8),
+          child: Container(
+            padding: const EdgeInsets.only(bottom: 4),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Theme.of(context).dividerColor),
+              ),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  'IDIOMS',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        ...entry.idioms.map((idiom) => _buildIdiomItem(context, idiom, ref)),
+      ],
+    );
+  }
+
+  Widget _buildIdiomItem(
+    BuildContext context,
+    IdiomEntry idiom,
+    WidgetRef ref,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Idiom phrase
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 7, right: 8),
+                child: Icon(
+                  Icons.circle,
+                  size: 6,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => onWordTap?.call(idiom.phrase),
+                  child: Text(
+                    idiom.phrase,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Senses under this idiom
+          Padding(
+            padding: const EdgeInsets.only(left: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final group in idiom.groups)
+                  ...group.senses.map((s) => _buildSense(context, s, ref)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildPhrasalVerbs(BuildContext context) {

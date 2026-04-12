@@ -22,6 +22,7 @@ class DictEntry {
   final List<XrefInfo> xrefs;
   final List<Map<String, dynamic>> phrasalVerbs;
   final List<Map<String, dynamic>> extraExamples;
+  final List<IdiomEntry> idioms;
 
   DictEntry({
     required this.entry,
@@ -35,6 +36,7 @@ class DictEntry {
     required this.xrefs,
     required this.phrasalVerbs,
     required this.extraExamples,
+    this.idioms = const [],
   });
 
   String get headword => entry['headword'] as String? ?? '';
@@ -70,6 +72,14 @@ class SenseWithExamples {
     required this.examples,
     this.xrefs = const [],
   });
+}
+
+/// Lightweight idiom data (phrase + senses only)
+class IdiomEntry {
+  final String phrase;
+  final List<SenseGroupWithSenses> groups;
+
+  IdiomEntry({required this.phrase, required this.groups});
 }
 
 /// Load full entry data from dictionary DB
@@ -164,6 +174,53 @@ Future<DictEntry> loadFullEntry(
     );
   }
 
+  // Load idioms (child entries with parent_entry_id = this entry)
+  final idiomRows = await db.getIdioms(entryId);
+  final idioms = await Future.wait(idiomRows.map((row) async {
+    final idiomId = row['id'] as int;
+    final results = await Future.wait([
+      db.getSenseGroups(idiomId),
+      db.getAllSensesForEntry(idiomId),
+      db.getAllExamplesForEntry(idiomId),
+    ]);
+    final idiomSenseGroupRows = results[0];
+    final idiomAllSenses = results[1];
+    final idiomAllExamples = results[2];
+
+    final idiomExamplesBySense = <int, List<Map<String, dynamic>>>{};
+    for (final ex in idiomAllExamples) {
+      final sId = ex['sense_id'] as int;
+      idiomExamplesBySense.putIfAbsent(sId, () => []).add(ex);
+    }
+
+    final idiomSensesByGroup = <int, List<Map<String, dynamic>>>{};
+    for (final s in idiomAllSenses) {
+      final sgId = s['sense_group_id'] as int;
+      idiomSensesByGroup.putIfAbsent(sgId, () => []).add(s);
+    }
+
+    final idiomGroups = <SenseGroupWithSenses>[];
+    for (final sg in idiomSenseGroupRows) {
+      final sgId = sg['id'] as int;
+      final senseRows = idiomSensesByGroup[sgId] ?? [];
+      idiomGroups.add(SenseGroupWithSenses(
+        group: sg,
+        senses: senseRows.map((s) {
+          final sId = s['id'] as int;
+          return SenseWithExamples(
+            sense: s,
+            examples: idiomExamplesBySense[sId] ?? [],
+          );
+        }).toList(),
+      ));
+    }
+
+    return IdiomEntry(
+      phrase: row['headword'] as String? ?? '',
+      groups: idiomGroups,
+    );
+  }));
+
   return DictEntry(
     entry: entry,
     pronunciations: pronunciations,
@@ -176,6 +233,7 @@ Future<DictEntry> loadFullEntry(
     xrefs: entryXrefs,
     phrasalVerbs: phrasalVerbs,
     extraExamples: extraExamples,
+    idioms: idioms,
   );
 }
 
