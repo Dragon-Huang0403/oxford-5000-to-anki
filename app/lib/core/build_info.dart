@@ -10,6 +10,9 @@ const String _buildCommitEnv = String.fromEnvironment(
   defaultValue: '',
 );
 
+/// True when BUILD_COMMIT was not injected at build time (i.e. local dev build).
+final bool isDevBuild = _buildCommitEnv.isEmpty;
+
 /// CI injects the full SHA; local dev builds resolve from git.
 final String buildCommit = _resolveBuildCommit();
 

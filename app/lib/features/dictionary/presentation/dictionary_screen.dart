@@ -300,6 +300,10 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
         .then((_) => ref.read(syncServiceProvider)?.pushLatestSearch());
     // Auto-pronounce the selected entry
     _autoPronounceEntry(entry);
+    // Restore focus so the outer Focus widget receives Escape key events.
+    // Without this, mouse-click selection loses focus when the ListTile is
+    // removed on rebuild, and Escape falls through to the system (exits app).
+    if (Platform.isMacOS) _focusNode.requestFocus();
   }
 
   void _autoPronounceEntry(DictEntry entry) async {
