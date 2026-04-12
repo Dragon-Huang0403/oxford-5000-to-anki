@@ -26,7 +26,7 @@ That's it. The script and CI handle the rest:
 | File | Role |
 |---|---|
 | `app/pubspec.yaml` | Canonical version (`0.2.0+2`) |
-| `app/lib/core/build_info.dart` | Generated consts: `appVersion`, `appBuildNumber`, `buildDate`, `buildCommit` |
+| `app/lib/core/build_info.dart` | Generated consts: `appVersion`, `appBuildNumber`, `buildCommit` |
 | `scripts/bump_version.sh` | Bumps version, regenerates build_info, commits |
 | `.github/workflows/auto-tag.yml` | Creates git tag when pubspec version changes on main |
 | `.github/workflows/release.yml` | Builds artifacts and creates GitHub Release on tag |
@@ -37,13 +37,9 @@ That's it. The script and CI handle the rest:
 - **Semver** (e.g. `0.2.0`) — the user-facing version, used for git tags and display
 - **Build number** (e.g. `+2`) — auto-incremented by `bump_version.sh`, used by Android `versionCode` and iOS `CFBundleVersion`
 
-## Build Date
-
-`buildDate` uses `String.fromEnvironment('BUILD_DATE')`. CI injects a UTC date (`YYYY-MM-DD`). Local dev builds default to `DateTime.now()` formatted as `YYYY-MM-DD HH:MM`, so the Settings screen always shows a meaningful timestamp.
-
 ## Commit Hash
 
-`buildCommit` uses `String.fromEnvironment('BUILD_COMMIT')` — a compile-time const injected via `--dart-define` in `release.yml`. Defaults to `'dev'` for local builds. CI passes the full SHA (`${{ github.sha }}`); the UI truncates to 7 chars for display.
+`buildCommit` uses `String.fromEnvironment('BUILD_COMMIT')`. CI injects the full SHA (`${{ github.sha }}`) via `--dart-define` in `release.yml`. Local dev builds resolve the commit hash at runtime via `git rev-parse HEAD`. Falls back to `'dev'` if git is unavailable. The UI truncates to 7 chars for display.
 
 ## CI Notes
 
