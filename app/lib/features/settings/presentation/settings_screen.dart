@@ -30,7 +30,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       await ref.read(authServiceProvider)?.signInWithGoogle();
       // Auto-sync on first sign-in
-      ref.read(syncServiceProvider)?.syncSearchHistory();
+      final syncService = ref.read(syncServiceProvider);
+      if (syncService != null) {
+        syncService.pushAllSettings();
+        syncService.syncSearchHistory();
+        syncService.syncReviewData();
+        syncService.pullSettings();
+        syncService.cleanupSoftDeletes();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
