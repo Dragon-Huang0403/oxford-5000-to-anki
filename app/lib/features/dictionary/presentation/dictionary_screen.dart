@@ -202,11 +202,11 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
         .playPronunciation(entry.pronunciations, dialect: dialect);
   }
 
-  void _autoPronounce(List<DictEntry> entries, String query) async {
-    if (entries.isEmpty || !_committed || query == _lastAutoPronouncedQuery) {
+  void _autoPronounce(List<SearchResult> results, String query) async {
+    if (results.isEmpty || !_committed || query == _lastAutoPronouncedQuery) {
       return;
     }
-    final first = entries.first;
+    final first = results.first.entry;
     if (first.headword.toLowerCase() != query.toLowerCase()) return;
 
     _lastAutoPronouncedQuery = query;
@@ -216,11 +216,11 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
   String? _lastSavedHeadword;
 
   /// Save to history only for single-entry results (multi-entry saves on selection).
-  void _saveToHistory(List<DictEntry> entries, String query) {
-    if (!_committed || entries.isEmpty) return;
+  void _saveToHistory(List<SearchResult> results, String query) {
+    if (!_committed || results.isEmpty) return;
     // Multi-entry: history is saved when user picks an option in _selectEntry
-    if (entries.length > 1) return;
-    final entry = entries.first;
+    if (results.length > 1) return;
+    final entry = results.first.entry;
     final key = '${entry.headword}:${entry.pos}';
     if (key == _lastSavedHeadword) return;
     _lastSavedHeadword = key;
@@ -251,37 +251,38 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
     });
 
     ref.listen(searchResultsProvider, (prev, next) {
-      next.whenData((entries) {
+      next.whenData((results) {
         final q = ref.read(searchQueryProvider);
-        _saveToHistory(entries, q);
+        _saveToHistory(results, q);
         // Auto-select if single entry or pending POS from history tap
-        if (entries.length == 1) {
+        if (results.length == 1) {
           if (_selectedEntryIndex == null) {
             setState(() {
               _selectedEntryIndex = 0;
               _entryAutoSelected = true;
             });
           }
-          _autoPronounce(entries, q);
-        } else if (_pendingPos != null && entries.length > 1) {
-          final idx = entries.indexWhere((e) => e.pos == _pendingPos);
+          _autoPronounce(results, q);
+        } else if (_pendingPos != null && results.length > 1) {
+          final idx = results.indexWhere((r) => r.entry.pos == _pendingPos);
           if (idx >= 0) {
+            final entry = results[idx].entry;
             setState(() {
               _selectedEntryIndex = idx;
               _entryAutoSelected = true;
             });
             // Save to history and auto-pronounce
-            _lastSavedHeadword = '${entries[idx].headword}:${entries[idx].pos}';
+            _lastSavedHeadword = '${entry.headword}:${entry.pos}';
             ref
                 .read(searchHistoryDaoProvider)
                 .addSearch(
-                  entries[idx].headword,
-                  entryId: entries[idx].id,
-                  headword: entries[idx].headword,
-                  pos: entries[idx].pos,
+                  entry.headword,
+                  entryId: entry.id,
+                  headword: entry.headword,
+                  pos: entry.pos,
                 )
                 .then((_) => ref.read(syncServiceProvider)?.pushLatestSearch());
-            _autoPronounceEntry(entries[idx]);
+            _autoPronounceEntry(entry);
           }
           _pendingPos = null;
         }
@@ -334,8 +335,8 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
                     child: query.isEmpty
                         ? _buildHomeScreen()
                         : results.when(
-                            data: (entries) {
-                              if (entries.isEmpty) {
+                            data: (searchResults) {
+                              if (searchResults.isEmpty) {
                                 return Center(
                                   child: Text(
                                     'No results for "$query"',
@@ -351,7 +352,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
                               if (_selectedEntryIndex != null) {
                                 final idx = _selectedEntryIndex!.clamp(
                                   0,
-                                  entries.length - 1,
+                                  searchResults.length - 1,
                                 );
                                 return SingleChildScrollView(
                                   controller: _scrollController,
@@ -359,14 +360,14 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
                                     horizontal: 16,
                                   ),
                                   child: EntryCard(
-                                    entry: entries[idx],
+                                    entry: searchResults[idx].entry,
                                     onWordTap: _commitSearch,
                                   ),
                                 );
                               }
                               // Multiple entries: show options list
                               return EntryOptionsList(
-                                entries: entries,
+                                results: searchResults,
                                 onSelect: _selectEntry,
                               );
                             },

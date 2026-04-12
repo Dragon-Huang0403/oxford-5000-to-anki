@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import '../../providers/search_provider.dart';
 
 class EntryOptionsList extends StatelessWidget {
-  final List<DictEntry> entries;
+  final List<SearchResult> results;
   final void Function(int index, DictEntry entry) onSelect;
 
   const EntryOptionsList({
     super.key,
-    required this.entries,
+    required this.results,
     required this.onSelect,
   });
 
@@ -16,9 +16,11 @@ class EntryOptionsList extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: entries.length,
+      itemCount: results.length,
       itemBuilder: (context, index) {
-        final e = entries[index];
+        final r = results[index];
+        final e = r.entry;
+        final isFts = r.source != SearchMatchSource.headword;
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           child: ListTile(
@@ -26,15 +28,60 @@ class EntryOptionsList extends StatelessWidget {
               e.headword,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
-            subtitle: e.pos.isNotEmpty
-                ? Text(
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (e.pos.isNotEmpty)
+                  Text(
                     e.pos,
                     style: TextStyle(
                       color: cs.primary,
                       fontStyle: FontStyle.italic,
                     ),
-                  )
-                : null,
+                  ),
+                if (isFts && r.snippet.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: r.source == SearchMatchSource.definition
+                              ? cs.primaryContainer
+                              : cs.tertiaryContainer,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          r.source == SearchMatchSource.definition ? 'def' : 'ex',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: r.source == SearchMatchSource.definition
+                                ? cs.onPrimaryContainer
+                                : cs.onTertiaryContainer,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          r.snippet,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
