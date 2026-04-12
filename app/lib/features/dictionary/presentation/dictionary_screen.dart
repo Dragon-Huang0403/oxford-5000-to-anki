@@ -207,7 +207,6 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
       return;
     }
     final first = results.first.entry;
-    if (first.headword.toLowerCase() != query.toLowerCase()) return;
 
     _lastAutoPronouncedQuery = query;
     _autoPronounceEntry(first);
