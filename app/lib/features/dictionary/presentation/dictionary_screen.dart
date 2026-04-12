@@ -54,6 +54,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+    if (!Platform.isMacOS) return KeyEventResult.ignored;
 
     // Arrow keys for search results
     final asyncResults = ref.read(searchResultsProvider);
@@ -462,7 +463,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
                               // Show options list
                               return EntryOptionsList(
                                 results: searchResults,
-                                highlightedIndex: _highlightedIndex,
+                                highlightedIndex: Platform.isMacOS ? _highlightedIndex : -1,
                                 onSelect: _selectEntry,
                               );
                             },
@@ -488,7 +489,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
     if (historyAsync.hasValue && historyAsync.value!.isNotEmpty) {
       return SearchHistoryList(
         history: historyAsync.value!,
-        highlightedIndex: _highlightedIndex,
+        highlightedIndex: Platform.isMacOS ? _highlightedIndex : -1,
         scrollController: _historyScrollController,
         onTap: (word, {String? pos}) => _commitSearch(word, pos: pos),
         onClearAll: () async {
