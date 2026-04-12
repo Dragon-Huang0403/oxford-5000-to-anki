@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -46,6 +47,7 @@ jobs:
           --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           --dart-define=R2_BASE_URL=${{ secrets.R2_BASE_URL }}
+          --dart-define=BUILD_COMMIT=${{ github.sha }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -87,6 +89,7 @@ jobs:
           --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           --dart-define=R2_BASE_URL=${{ secrets.R2_BASE_URL }}
+          --dart-define=BUILD_COMMIT=${{ github.sha }}
 
       - name: Archive macOS app
         run: cd build/macos/Build/Products/Release && zip -r ../../../../../macos-build.zip *.app

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/auth/auth_provider.dart';
+import '../../../core/build_info.dart';
 import '../../review/providers/review_providers.dart';
 import '../../../core/sync/sync_provider.dart';
 import '../../../main.dart';
@@ -125,8 +126,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _buildSignInButton(cs)
               else
                 _buildSignOutButton(cs),
-              const SizedBox(height: 32),
             ],
+            const SizedBox(height: 24),
+            Center(
+              child: Text(
+                'v$appVersion · $buildDate · ${buildCommit.length > 7 ? buildCommit.substring(0, 7) : buildCommit}',
+                style: TextStyle(
+                  color: cs.onSurfaceVariant,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
           ],
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
