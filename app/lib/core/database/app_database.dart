@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:sqlite3/sqlite3.dart' as raw_sqlite;
 
 import 'user_tables.dart';
 
@@ -64,12 +65,29 @@ class DictionaryDatabase {
 
   DictionaryDatabase._(this._db);
 
+  static const _bundledSchemaVersion = 4;
+
   static Future<DictionaryDatabase> open() async {
     final dir = await getApplicationDocumentsDirectory();
     final dbPath = '${dir.path}/dictionary.db';
 
-    // Copy from bundled asset on first launch
-    if (!File(dbPath).existsSync()) {
+    // Copy from bundled asset on first launch or when schema is outdated
+    var needsCopy = !File(dbPath).existsSync();
+    if (!needsCopy) {
+      final rawDb = raw_sqlite.sqlite3.open(dbPath);
+      try {
+        final result = rawDb.select(
+          "SELECT value FROM meta WHERE key = 'schema_version'",
+        );
+        final v = int.tryParse(result.first['value'] as String) ?? 0;
+        if (v < _bundledSchemaVersion) needsCopy = true;
+      } catch (_) {
+        needsCopy = true;
+      } finally {
+        rawDb.close();
+      }
+    }
+    if (needsCopy) {
       final bytes = await rootBundle.load('assets/oald10.db');
       await File(dbPath).writeAsBytes(bytes.buffer.asUint8List());
     }
@@ -212,6 +230,44 @@ class DictionaryDatabase {
         )
         .get();
     return results.map((r) => r.data).toList();
+  }
+
+  /// Search definitions and examples via FTS5.
+  /// Returns entry rows ranked by BM25 relevance
+  /// (headword > definition > example).
+  Future<List<Map<String, dynamic>>> searchDefinitions(
+    String query, {
+    int limit = 20,
+  }) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+
+    // Sanitize: quote each token to prevent FTS5 syntax injection
+    final sanitized = q
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .map((w) => '"${w.replaceAll('"', '')}"')
+        .join(' ');
+    if (sanitized.isEmpty) return [];
+
+    try {
+      final results = await _db
+          .customSelect(
+            '''SELECT e.* FROM dictionary_fts fts
+           JOIN entries e ON e.id = fts.rowid
+           WHERE dictionary_fts MATCH ?
+           ORDER BY bm25(dictionary_fts, 10.0, 5.0, 1.0)
+           LIMIT ?''',
+            variables: [
+              Variable.withString(sanitized),
+              Variable.withInt(limit),
+            ],
+          )
+          .get();
+      return results.map((r) => r.data).toList();
+    } catch (_) {
+      return []; // graceful fallback on malformed queries
+    }
   }
 
   Future<List<Map<String, dynamic>>> lookupWord(String headword) async {

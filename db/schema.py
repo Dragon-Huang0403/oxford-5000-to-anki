@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 TABLES = """
 CREATE TABLE IF NOT EXISTS sources (
@@ -206,6 +206,16 @@ CREATE TRIGGER IF NOT EXISTS entries_au AFTER UPDATE ON entries BEGIN
 END;
 """
 
+DICTIONARY_FTS_TABLE = """
+CREATE VIRTUAL TABLE IF NOT EXISTS dictionary_fts USING fts5(
+    headword,
+    definitions,
+    examples,
+    content='',
+    tokenize='unicode61'
+);
+"""
+
 META_TABLE = """
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
@@ -217,6 +227,7 @@ CREATE TABLE IF NOT EXISTS meta (
 def create_schema(db: sqlite3.Connection) -> None:
     db.executescript(TABLES)
     db.executescript(FTS_TABLE)
+    db.executescript(DICTIONARY_FTS_TABLE)
     db.executescript(META_TABLE)
     db.execute(
         "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', ?)",
