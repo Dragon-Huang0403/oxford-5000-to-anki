@@ -64,6 +64,7 @@ Pre-commit hook auto-formats and lints. Install with: `git config core.hooksPath
 - **Lazy card creation**: FSRS review cards created on first encounter, not bulk-imported
 - **Cross-DB queries**: dictionary lookups + user data joined in Dart, not SQL
 - **Drift code generation**: `app_database.g.dart` is generated; run build_runner after schema changes
+- **File size limit**: Keep Dart files under 500 lines. Split via widget extraction, Dart extensions, or domain-specific modules.
 
 ### Environment & secrets
 - `app/env.json` (gitignored) — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `R2_BASE_URL`
