@@ -33,8 +33,9 @@ final settingsStateProvider = FutureProvider<AppSettings>((ref) async {
         : '',
     showTrayIcon: Platform.isMacOS ? all['show_tray_icon'] != 'false' : false,
     showInDock: Platform.isMacOS ? all['show_in_dock'] != 'false' : true,
-    launchOnStartup:
-        Platform.isMacOS ? all['launch_on_startup'] == 'true' : false,
+    launchOnStartup: Platform.isMacOS
+        ? all['launch_on_startup'] == 'true'
+        : false,
   );
 });
 

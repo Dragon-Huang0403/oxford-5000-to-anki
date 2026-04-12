@@ -177,35 +177,35 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
       body: card == null || _loadingEntry
           ? const Center(child: CircularProgressIndicator())
           : _showBack
-              ? Column(
+          ? Column(
+              children: [
+                Expanded(child: _buildBack()),
+                RatingBar(intervals: _intervals, onRate: _rate),
+              ],
+            )
+          : GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _showBack = true),
+              child: SizedBox.expand(
+                child: Column(
                   children: [
-                    Expanded(child: _buildBack()),
-                    RatingBar(intervals: _intervals, onRate: _rate),
-                  ],
-                )
-              : GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => setState(() => _showBack = true),
-                  child: SizedBox.expand(
-                    child: Column(
-                      children: [
-                        const Spacer(flex: 3),
-                        _buildFront(card, cs),
-                        const Spacer(flex: 4),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 48),
-                          child: Text(
-                            'Tap anywhere to reveal',
-                            style: TextStyle(
-                              color: cs.onSurfaceVariant,
-                              fontSize: 14,
-                            ),
-                          ),
+                    const Spacer(flex: 3),
+                    _buildFront(card, cs),
+                    const Spacer(flex: 4),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 48),
+                      child: Text(
+                        'Tap anywhere to reveal',
+                        style: TextStyle(
+                          color: cs.onSurfaceVariant,
+                          fontSize: 14,
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
+              ),
+            ),
     );
   }
 
