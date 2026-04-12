@@ -25,7 +25,6 @@ flutter build macos --release --dart-define-from-file=env.json
 Python tools (from repo root):
 ```bash
 python build_db.py                  # Build oald10.db from macOS dictionary bundle
-python anki/create_deck.py --5000   # Generate Anki deck
 ```
 
 Pre-commit hook auto-formats and lints. Install with: `git config core.hooksPath .githooks`
@@ -34,7 +33,7 @@ Pre-commit hook auto-formats and lints. Install with: `git config core.hooksPath
 
 ### Two-part project
 - **`app/`** — Flutter application (Dart)
-- **`db/`, `anki/`, root .py files** — Python tooling for DB building, Anki generation, web API
+- **`db/`, root .py files** — Python tooling for DB building, web API
 
 ### Flutter app structure (`app/lib/`)
 
@@ -72,4 +71,4 @@ Pre-commit hook auto-formats and lints. Install with: `git config core.hooksPath
 - `app/assets/oald10.db` (gitignored, ~93MB) — must be placed before building
 
 ### Documentation
-Detailed guides in `docs/`: `database.md` (schema, build pipeline), `review.md` (FSRS logic, sync), `anki.md`, `r2-export.md`.
+Detailed guides in `docs/`: `database.md` (schema, build pipeline), `review.md` (FSRS logic, sync), `r2-export.md`.

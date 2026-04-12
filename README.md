@@ -100,7 +100,6 @@ app/
   android/              # Android target
 
 db/                     # Python: SQLite schema, parser, importer
-anki/                   # Python: Anki deck generator
 scripts/                # R2 export & upload
 docs/                   # Guides
 ```
@@ -177,13 +176,12 @@ In Xcode: **Runner target > Signing & Capabilities > Automatically manage signin
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install genanki flask opencc-python-reimplemented
+pip install flask opencc-python-reimplemented
 
 python build_db.py          # Build oald10.db from macOS dictionary bundle
 python app.py --port 8000   # Web dictionary browser
-python anki/create_deck.py --5000  # Generate Anki deck
 ```
 
-See `docs/` for detailed guides on the database schema, R2 export, and Anki generation.
+See `docs/` for detailed guides on the database schema and R2 export.
 
 </details>
