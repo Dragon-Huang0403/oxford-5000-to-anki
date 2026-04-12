@@ -141,14 +141,17 @@ class IdiomsWidget extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: GestureDetector(
-                  onTap: () => onWordTap?.call(idiom.phrase),
-                  child: Text(
-                    idiom.phrase,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                      color: Theme.of(context).colorScheme.onSurface,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () => onWordTap?.call(idiom.phrase),
+                    child: Text(
+                      idiom.phrase,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                   ),
                 ),

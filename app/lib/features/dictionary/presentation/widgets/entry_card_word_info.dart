@@ -17,40 +17,48 @@ class WordFamilyWidget extends StatelessWidget {
           final word = wf['word'] as String? ?? '';
           final pos = wf['pos'] as String? ?? '';
           final opp = wf['opposite'] as String? ?? '';
-          return GestureDetector(
-            onTap: onWordTap != null ? () => onWordTap!(word) : null,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    word,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.primary,
-                      fontSize: 13,
-                    ),
-                  ),
-                  if (pos.isNotEmpty)
+          return MouseRegion(
+            cursor: onWordTap != null
+                ? SystemMouseCursors.click
+                : MouseCursor.defer,
+            child: GestureDetector(
+              onTap: onWordTap != null ? () => onWordTap!(word) : null,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      ' $pos',
+                      word,
                       style: TextStyle(
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.primary,
+                        fontSize: 13,
                       ),
                     ),
-                  if (opp.isNotEmpty)
-                    Text(
-                      ' $opp',
-                      style: TextStyle(fontSize: 12, color: Colors.red.shade300),
-                    ),
-                ],
+                    if (pos.isNotEmpty)
+                      Text(
+                        ' $pos',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    if (opp.isNotEmpty)
+                      Text(
+                        ' $opp',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.red.shade300,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           );
