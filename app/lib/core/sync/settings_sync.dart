@@ -26,7 +26,6 @@ class SettingsSync {
     'audio_dialect',
     'pronunciation_display',
     'auto_pronounce',
-    'theme_mode',
   ];
 
   Future<void> pushSetting(String key, String value) async {

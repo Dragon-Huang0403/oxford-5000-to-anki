@@ -37,6 +37,12 @@ class SyncService {
   Future<({int pushed, int pulled})> syncSearchHistory() =>
       _searchHistorySync.syncSearchHistory();
 
+  Future<void> deleteRemoteSearchEntry(String uuid) =>
+      _searchHistorySync.deleteRemoteEntry(uuid);
+
+  Future<void> clearRemoteSearchHistory() =>
+      _searchHistorySync.clearRemoteSearchHistory();
+
   // ── Review ──────────────────────────────────────────────────────────────
 
   Future<void> pushLatestReviewCard(String cardId) =>

@@ -407,8 +407,14 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen> {
         history: historyAsync.value!,
         scrollController: _historyScrollController,
         onTap: (word, {String? pos}) => _commitSearch(word, pos: pos),
-        onClearAll: () => ref.read(searchHistoryDaoProvider).clearAll(),
-        onDelete: (id) => ref.read(searchHistoryDaoProvider).deleteById(id),
+        onClearAll: () {
+          ref.read(searchHistoryDaoProvider).clearAll();
+          ref.read(syncServiceProvider)?.clearRemoteSearchHistory();
+        },
+        onDelete: (item) {
+          ref.read(searchHistoryDaoProvider).deleteById(item.id);
+          ref.read(syncServiceProvider)?.deleteRemoteSearchEntry(item.uuid);
+        },
       );
     }
     return const DictionaryWelcome();

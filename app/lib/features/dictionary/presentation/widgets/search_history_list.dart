@@ -6,7 +6,7 @@ class SearchHistoryList extends StatelessWidget {
   final ScrollController scrollController;
   final void Function(String word, {String? pos}) onTap;
   final VoidCallback onClearAll;
-  final void Function(int id) onDelete;
+  final void Function(SearchHistoryData item) onDelete;
 
   const SearchHistoryList({
     super.key,
@@ -66,44 +66,48 @@ class SearchHistoryList extends StatelessWidget {
         final item = history[index - 1];
         final word = item.headword ?? item.query;
         final pos = item.pos;
-        return Dismissible(
-          key: ValueKey(item.id),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 16),
-            color: cs.errorContainer,
-            child: Icon(Icons.delete_outline, color: cs.onErrorContainer),
-          ),
-          onDismissed: (_) => onDelete(item.id),
-          child: ListTile(
-            leading: Icon(Icons.history, color: cs.onSurfaceVariant, size: 20),
-            title: Row(
-              children: [
-                Text(word),
-                if (pos.isNotEmpty) ...[
-                  const SizedBox(width: 6),
-                  Text(
-                    pos,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: cs.primary,
-                      fontStyle: FontStyle.italic,
-                    ),
+        return ListTile(
+          leading: Icon(Icons.history, color: cs.onSurfaceVariant, size: 20),
+          title: Row(
+            children: [
+              Text(word),
+              if (pos.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Text(
+                  pos,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.primary,
+                    fontStyle: FontStyle.italic,
                   ),
-                ],
+                ),
               ],
-            ),
-            trailing: Text(
-              _relativeTime(item.searchedAt),
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-            ),
-            onTap: () => onTap(word, pos: pos.isNotEmpty ? pos : null),
-            contentPadding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
+            ],
           ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _relativeTime(item.searchedAt),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: Icon(Icons.close, size: 16, color: cs.onSurfaceVariant),
+                onPressed: () => onDelete(item),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                tooltip: 'Remove',
+              ),
+            ],
+          ),
+          onTap: () => onTap(word, pos: pos.isNotEmpty ? pos : null),
+          contentPadding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
         );
       },
     );

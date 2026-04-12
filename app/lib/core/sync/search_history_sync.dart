@@ -140,8 +140,73 @@ class SearchHistorySync {
   }
 
   Future<({int pushed, int pulled})> syncSearchHistory() async {
+    if (await hasPendingSearchClear()) {
+      try {
+        await _executeClearRemoteSearchHistory();
+        return (pushed: 0, pulled: 0);
+      } catch (_) {
+        return (pushed: 0, pulled: 0);
+      }
+    }
     final pushed = await pushAllUnsynced();
     final pulled = await pullSearchHistory();
     return (pushed: pushed, pulled: pulled);
+  }
+
+  // ── Delete single remote search entry ────────────────────────────────
+
+  Future<void> deleteRemoteEntry(String uuid) async {
+    if (_getUserId() == null || uuid.isEmpty) return;
+    try {
+      await _supabase.from('search_history').delete().eq('id', uuid);
+    } catch (e) {
+      debugPrint('Delete remote search entry failed: $e');
+    }
+  }
+
+  // ── Clear remote search history ──────────────────────────────────────
+
+  static const _pendingSearchClearKey = 'pending_search_history_clear';
+
+  Future<void> clearRemoteSearchHistory() async {
+    if (_getUserId() == null) return;
+    try {
+      await _executeClearRemoteSearchHistory();
+    } catch (e) {
+      debugPrint('Clear remote search history failed, will retry: $e');
+      await _setPendingSearchClear(true);
+    }
+  }
+
+  Future<void> _executeClearRemoteSearchHistory() async {
+    if (_getUserId() == null) return;
+    await _supabase
+        .from('search_history')
+        .delete()
+        .eq('user_id', _getUserId()!);
+    await setLastSyncAt(_db, 'search_history', '');
+    await _setPendingSearchClear(false);
+  }
+
+  Future<bool> hasPendingSearchClear() async {
+    final rows = await _db
+        .customSelect(
+          'SELECT value FROM sync_meta WHERE key = ?',
+          variables: [Variable.withString(_pendingSearchClearKey)],
+          readsFrom: {_db.syncMeta},
+        )
+        .get();
+    return rows.isNotEmpty && rows.first.data['value'] == 'true';
+  }
+
+  Future<void> _setPendingSearchClear(bool pending) async {
+    await _db
+        .into(_db.syncMeta)
+        .insertOnConflictUpdate(
+          SyncMetaCompanion.insert(
+            key: _pendingSearchClearKey,
+            value: pending ? 'true' : '',
+          ),
+        );
   }
 }
