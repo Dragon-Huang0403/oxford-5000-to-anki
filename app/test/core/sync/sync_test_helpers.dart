@@ -74,6 +74,6 @@ Map<String, dynamic> makeReviewCard({
     'state': 0,
     'created_at': now,
     'updated_at': updatedAt ?? now,
-    if (deletedAt != null) 'deleted_at': deletedAt,
+    ?'deleted_at': deletedAt,
   };
 }
