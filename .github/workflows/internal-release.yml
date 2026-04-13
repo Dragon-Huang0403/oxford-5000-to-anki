@@ -1,4 +1,4 @@
-name: Internal Testing
+name: Internal Release
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: internal-testing
+  group: internal-release
   cancel-in-progress: true
 
 jobs:
@@ -53,11 +53,11 @@ jobs:
       - name: Decode Google Play service account
         run: echo "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}" | base64 -d > /tmp/service-account.json
 
-      - name: Upload to Play Internal Testing
+      - name: Upload to Play Internal Release
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJson: /tmp/service-account.json
           packageName: com.deckionary.deckionary
           releaseFiles: app/build/app/outputs/bundle/release/app-release.aab
           track: internal
-          status: draft
+          status: completed
