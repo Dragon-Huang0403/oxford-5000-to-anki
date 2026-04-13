@@ -7,6 +7,8 @@ import '../../dictionary/providers/search_provider.dart';
 import '../../dictionary/presentation/widgets/entry_card.dart';
 import '../domain/review_session.dart';
 import '../providers/review_providers.dart';
+import 'widgets/lookup_sheet.dart';
+import 'widgets/lookup_sheet_controller.dart';
 import 'widgets/rating_bar.dart';
 
 class ReviewSessionScreen extends ConsumerStatefulWidget {
@@ -22,6 +24,7 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
   DictEntry? _currentEntry;
   bool _loadingEntry = false;
   Map<fsrs.Rating, String> _intervals = {};
+  LookupSheetController? _lookupController;
 
   @override
   void initState() {
@@ -101,7 +104,46 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
     return null;
   }
 
+  void _openLookupSheet(String? initialWord) {
+    final controller = LookupSheetController(ref.read(dictionaryDbProvider));
+    _lookupController = controller;
+
+    if (initialWord != null) {
+      controller.commitSearch(initialWord);
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.3,
+        maxChildSize: 0.92,
+        snap: true,
+        snapSizes: const [0.5, 0.92],
+        expand: false,
+        builder: (context, scrollController) => LookupSheet(
+          controller: controller,
+          autofocusSearch: initialWord == null,
+        ),
+      ),
+    ).whenComplete(() {
+      _lookupController?.dispose();
+      _lookupController = null;
+    });
+  }
+
   Future<void> _rate(fsrs.Rating rating) async {
+    // Dismiss lookup sheet if open
+    if (_lookupController != null && mounted) {
+      Navigator.of(context).pop();
+    }
+
     final session = ref.read(reviewSessionProvider).value;
     if (session == null) return;
 
@@ -160,6 +202,12 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
           style: const TextStyle(fontSize: 16),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () => _openLookupSheet(null),
+          ),
+        ],
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () {
@@ -269,7 +317,7 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
       padding: const EdgeInsets.only(bottom: 16),
       child: EntryCard(
         entry: _currentEntry!,
-        onWordTap: (_) {}, // no navigation during review
+        onWordTap: (word) => _openLookupSheet(word),
       ),
     );
   }
