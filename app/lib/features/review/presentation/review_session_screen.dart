@@ -116,12 +116,13 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      constraints: const BoxConstraints(maxWidth: double.infinity),
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
+        initialChildSize: 0.8,
         minChildSize: 0.3,
         maxChildSize: 0.92,
         snap: true,
