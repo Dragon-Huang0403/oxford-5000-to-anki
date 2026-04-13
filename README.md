@@ -19,11 +19,11 @@ A dictionary and vocabulary learning app powered by the Oxford Advanced Learner'
 <!-- Replace these placeholders with actual screenshots -->
 
 <p align="center">
-  <img src="docs/screenshots/dictionary.png" width="260" alt="Dictionary search" />
+  <img src="docs/screenshots/dictionary.png" width="200" alt="Dictionary search" />
   &nbsp;&nbsp;
-  <img src="docs/screenshots/review.png" width="260" alt="Spaced repetition review" />
+  <img src="docs/screenshots/learning.png" width="200" alt="Spaced repetition review" />
   &nbsp;&nbsp;
-  <img src="docs/screenshots/quick-search.png" width="260" alt="macOS Quick Search" />
+  <img src="docs/screenshots/review.png" width="200" alt="Reivew process" />
 </p>
 
 ---
