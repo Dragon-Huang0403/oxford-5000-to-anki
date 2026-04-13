@@ -49,8 +49,9 @@ Future<List<SearchResult>> searchEntries(
   // Always append FTS results (definitions/examples) if query is 2+ chars
   if (query.length >= 2) {
     final ftsRows = await db.searchDefinitions(query, limit: 15);
-    final newFtsRows =
-        ftsRows.where((r) => !headwordIds.contains(r['id'] as int)).toList();
+    final newFtsRows = ftsRows
+        .where((r) => !headwordIds.contains(r['id'] as int))
+        .toList();
     if (newFtsRows.isNotEmpty) {
       final ftsEntries = await Future.wait(
         newFtsRows.map((row) => loadFullEntry(db, row)),
@@ -96,8 +97,8 @@ SearchResult buildFtsResult(DictEntry entry, String query) {
   // Fallback: first definition
   final firstDef =
       entry.groups.firstOrNull?.senses.firstOrNull?.sense['definition']
-              as String? ??
-          '';
+          as String? ??
+      '';
   return SearchResult(
     entry,
     source: SearchMatchSource.definition,
