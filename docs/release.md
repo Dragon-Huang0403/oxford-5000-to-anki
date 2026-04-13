@@ -39,7 +39,7 @@ That's it. The script and CI handle the rest:
 
 ## Commit Hash
 
-`buildCommit` uses `String.fromEnvironment('BUILD_COMMIT')`. CI injects the full SHA (`${{ github.sha }}`) via `--dart-define` in `release.yml`. Local dev builds resolve the commit hash at runtime via `git rev-parse HEAD`. Falls back to `'dev'` if git is unavailable. The UI truncates to 7 chars for display.
+`buildCommit` uses `String.fromEnvironment('BUILD_COMMIT')`. CI injects the full SHA (`${{ github.sha }}`) via `--dart-define` in `release.yml`. Local dev builds should pass `--dart-define=BUILD_COMMIT=$(git rev-parse HEAD)` to show the commit hash. Falls back to `'dev'` if not provided. The UI truncates to 7 chars for display.
 
 ## CI Notes
 
