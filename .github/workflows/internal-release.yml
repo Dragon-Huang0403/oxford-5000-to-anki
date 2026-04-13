@@ -41,9 +41,16 @@ jobs:
             '${{ secrets.ANDROID_KEY_ALIAS }}' \
             '${{ secrets.ANDROID_KEY_PASSWORD }}' > android/key.properties
 
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | sed 's/+.*//')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Build AAB
         run: >-
           flutter build appbundle --release
+          --build-name=${{ steps.version.outputs.version }}-dev
           --build-number=${{ github.run_number }}
           --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
