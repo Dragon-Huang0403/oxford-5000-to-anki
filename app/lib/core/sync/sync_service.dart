@@ -112,10 +112,9 @@ class SyncService {
           readsFrom: {_db.syncMeta},
         )
         .get();
-    final storedVersion =
-        stored.isEmpty
-            ? 0
-            : int.tryParse(stored.first.data['value'] as String) ?? 0;
+    final storedVersion = stored.isEmpty
+        ? 0
+        : int.tryParse(stored.first.data['value'] as String) ?? 0;
 
     if (storedVersion < currentSyncVersion) {
       await _tableSync.clearAllWatermarks();

@@ -80,8 +80,7 @@ class SearchHistorySync {
           'deleted_at': row.deletedAt,
         });
 
-        await (_db.update(_db.searchHistory)
-              ..where((t) => t.id.equals(row.id)))
+        await (_db.update(_db.searchHistory)..where((t) => t.id.equals(row.id)))
             .write(const SearchHistoryCompanion(synced: Value(1)));
         pushed++;
       } catch (e) {

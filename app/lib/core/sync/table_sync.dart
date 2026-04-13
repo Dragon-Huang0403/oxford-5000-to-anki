@@ -34,8 +34,9 @@ class TableSync {
   }) async {
     if (_getUserId() == null) return 0;
 
-    final cursor =
-        watermarkKey != null ? await getLastSyncAt(_db, watermarkKey) : null;
+    final cursor = watermarkKey != null
+        ? await getLastSyncAt(_db, watermarkKey)
+        : null;
 
     var query = _supabase
         .from(remoteTable)

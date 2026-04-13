@@ -65,8 +65,12 @@ void main() {
           readsFrom: {db.syncMeta},
         )
         .get();
-    final existing =
-        rows.isEmpty ? <String>{} : (rows.first.data['value'] as String).split(',').where((s) => s.isNotEmpty).toSet();
+    final existing = rows.isEmpty
+        ? <String>{}
+        : (rows.first.data['value'] as String)
+              .split(',')
+              .where((s) => s.isNotEmpty)
+              .toSet();
     existing.add(key);
     await db
         .into(db.syncMeta)
@@ -79,7 +83,11 @@ void main() {
   }
 
   /// Helper: push a setting directly to Supabase.
-  Future<void> pushRemoteSetting(String key, String value, String updatedAt) async {
+  Future<void> pushRemoteSetting(
+    String key,
+    String value,
+    String updatedAt,
+  ) async {
     await supabase.from('user_settings').upsert({
       'user_id': userId,
       'key': key,
@@ -201,7 +209,9 @@ void main() {
       // Set up two dirty settings
       await setLocalSetting('new_cards_per_day', '10');
       await setLocalSetting('audio_dialect', 'uk');
-      await markDirty('nonexistent_but_dirty'); // will be removed (no local row)
+      await markDirty(
+        'nonexistent_but_dirty',
+      ); // will be removed (no local row)
       await markDirty('new_cards_per_day');
       await markDirty('audio_dialect');
 
@@ -220,46 +230,52 @@ void main() {
   });
 
   group('Settings two-device sync', () {
-    test('setting changed on device A appears on device B after pull', () async {
-      // Device A pushes a setting
-      await pushRemoteSetting(
-        'review_card_order',
-        'random',
-        '2026-04-12T10:00:00.000+00:00',
-      );
+    test(
+      'setting changed on device A appears on device B after pull',
+      () async {
+        // Device A pushes a setting
+        await pushRemoteSetting(
+          'review_card_order',
+          'random',
+          '2026-04-12T10:00:00.000+00:00',
+        );
 
-      // Device B pulls
-      await settingsSync.pullSettings();
+        // Device B pulls
+        await settingsSync.pullSettings();
 
-      expect(await getLocalSetting('review_card_order'), 'random');
-    });
+        expect(await getLocalSetting('review_card_order'), 'random');
+      },
+    );
 
-    test('dirty setting on device B is not overwritten by pull then pushed', () async {
-      // Remote has a setting
-      await pushRemoteSetting(
-        'auto_pronounce',
-        'false',
-        '2026-04-10T10:00:00.000+00:00',
-      );
+    test(
+      'dirty setting on device B is not overwritten by pull then pushed',
+      () async {
+        // Remote has a setting
+        await pushRemoteSetting(
+          'auto_pronounce',
+          'false',
+          '2026-04-10T10:00:00.000+00:00',
+        );
 
-      // Device B changes it locally (newer)
-      await setLocalSetting('auto_pronounce', 'true');
-      await markDirty('auto_pronounce');
+        // Device B changes it locally (newer)
+        await setLocalSetting('auto_pronounce', 'true');
+        await markDirty('auto_pronounce');
 
-      // Pull → push cycle (the correct order)
-      await settingsSync.pullSettings();
-      await settingsSync.pushDirtySettings();
+        // Pull → push cycle (the correct order)
+        await settingsSync.pullSettings();
+        await settingsSync.pushDirtySettings();
 
-      // Local should still be 'true' (dirty was preserved)
-      expect(await getLocalSetting('auto_pronounce'), 'true');
+        // Local should still be 'true' (dirty was preserved)
+        expect(await getLocalSetting('auto_pronounce'), 'true');
 
-      // Remote should now be 'true' (pushed)
-      final remote = await supabase
-          .from('user_settings')
-          .select()
-          .eq('user_id', userId)
-          .eq('key', 'auto_pronounce');
-      expect(remote.first['value'], 'true');
-    });
+        // Remote should now be 'true' (pushed)
+        final remote = await supabase
+            .from('user_settings')
+            .select()
+            .eq('user_id', userId)
+            .eq('key', 'auto_pronounce');
+        expect(remote.first['value'], 'true');
+      },
+    );
   });
 }

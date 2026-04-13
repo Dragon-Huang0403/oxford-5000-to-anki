@@ -19,16 +19,8 @@ void main() {
     dbA = createTestDb();
     dbB = createTestDb();
     userId = await createTestUser(supabase);
-    syncA = TableSync(
-      db: dbA,
-      supabase: supabase,
-      getUserId: () => userId,
-    );
-    syncB = TableSync(
-      db: dbB,
-      supabase: supabase,
-      getUserId: () => userId,
-    );
+    syncA = TableSync(db: dbA, supabase: supabase, getUserId: () => userId);
+    syncB = TableSync(db: dbB, supabase: supabase, getUserId: () => userId);
   });
 
   tearDown(() async {
@@ -230,83 +222,92 @@ void main() {
       },
     );
 
-    test(
-      'device B pulls cards from device A even after first sync',
-      () async {
-        // Device A creates 3 cards, pushes, device B pulls
-        final batchTime = '2026-04-12T14:34:05.000+00:00';
-        final firstBatch = List.generate(3, (_) => testUuid());
+    test('device B pulls cards from device A even after first sync', () async {
+      // Device A creates 3 cards, pushes, device B pulls
+      final batchTime = '2026-04-12T14:34:05.000+00:00';
+      final firstBatch = List.generate(3, (_) => testUuid());
 
-        for (final id in firstBatch) {
-          await createLocalCard(
-            dbA,
-            id: id,
-            headword: 'first-$id',
-            updatedAt: batchTime,
-          );
-          await pushCard(dbA, supabase, id, userId);
-        }
-
-        // Device B first sync
-        await syncB.pull(
-          remoteTable: 'review_cards',
-          watermarkKey: 'review_cards',
-          processRow: pullCallback(dbB),
+      for (final id in firstBatch) {
+        await createLocalCard(
+          dbA,
+          id: id,
+          headword: 'first-$id',
+          updatedAt: batchTime,
         );
-        expect(await countLocalCards(dbB), 3);
+        await pushCard(dbA, supabase, id, userId);
+      }
 
-        // Device A creates 2 MORE cards with SAME timestamp
-        final secondBatch = List.generate(2, (_) => testUuid());
-        for (final id in secondBatch) {
-          await createLocalCard(
-            dbA,
-            id: id,
-            headword: 'second-$id',
-            updatedAt: batchTime,
-          );
-          await pushCard(dbA, supabase, id, userId);
-        }
-
-        // Device B second sync — must get the 2 new cards
-        await syncB.pull(
-          remoteTable: 'review_cards',
-          watermarkKey: 'review_cards',
-          processRow: pullCallback(dbB),
-        );
-        expect(await countLocalCards(dbB), 5);
-      },
-    );
-
-    test('both devices converge to same state after bidirectional sync',
-        () async {
-      final tA = '2026-04-12T10:00:00.000+00:00';
-      final tB = '2026-04-12T11:00:00.000+00:00';
-      final cardA = testUuid(), cardB = testUuid();
-
-      // Device A creates a card
-      await createLocalCard(dbA, id: cardA, headword: 'from-A', updatedAt: tA);
-      await pushCard(dbA, supabase, cardA, userId);
-
-      // Device B creates a different card
-      await createLocalCard(dbB, id: cardB, headword: 'from-B', updatedAt: tB);
-      await pushCard(dbB, supabase, cardB, userId);
-
-      // Both devices pull
-      await syncA.pull(
-        remoteTable: 'review_cards',
-        watermarkKey: 'review_cards',
-        processRow: pullCallback(dbA),
-      );
+      // Device B first sync
       await syncB.pull(
         remoteTable: 'review_cards',
         watermarkKey: 'review_cards',
         processRow: pullCallback(dbB),
       );
+      expect(await countLocalCards(dbB), 3);
 
-      // Both should have 2 cards
-      expect(await countLocalCards(dbA), 2);
-      expect(await countLocalCards(dbB), 2);
+      // Device A creates 2 MORE cards with SAME timestamp
+      final secondBatch = List.generate(2, (_) => testUuid());
+      for (final id in secondBatch) {
+        await createLocalCard(
+          dbA,
+          id: id,
+          headword: 'second-$id',
+          updatedAt: batchTime,
+        );
+        await pushCard(dbA, supabase, id, userId);
+      }
+
+      // Device B second sync — must get the 2 new cards
+      await syncB.pull(
+        remoteTable: 'review_cards',
+        watermarkKey: 'review_cards',
+        processRow: pullCallback(dbB),
+      );
+      expect(await countLocalCards(dbB), 5);
     });
+
+    test(
+      'both devices converge to same state after bidirectional sync',
+      () async {
+        final tA = '2026-04-12T10:00:00.000+00:00';
+        final tB = '2026-04-12T11:00:00.000+00:00';
+        final cardA = testUuid(), cardB = testUuid();
+
+        // Device A creates a card
+        await createLocalCard(
+          dbA,
+          id: cardA,
+          headword: 'from-A',
+          updatedAt: tA,
+        );
+        await pushCard(dbA, supabase, cardA, userId);
+
+        // Device B creates a different card
+        await createLocalCard(
+          dbB,
+          id: cardB,
+          headword: 'from-B',
+          updatedAt: tB,
+        );
+        await pushCard(dbB, supabase, cardB, userId);
+
+        // Both devices pull
+        await syncA.pull(
+          remoteTable: 'review_cards',
+          watermarkKey: 'review_cards',
+          processRow: pullCallback(dbA),
+        );
+        await syncB.pull(
+          remoteTable: 'review_cards',
+          watermarkKey: 'review_cards',
+          processRow: pullCallback(dbB),
+        );
+
+        // Both should have 2 cards
+        expect(await countLocalCards(dbA), 2);
+        expect(await countLocalCards(dbB), 2);
+      },
+    );
 
     test('force full sync recovers from corrupted watermark', () async {
       final t1 = '2026-04-10T10:00:00.000+00:00';

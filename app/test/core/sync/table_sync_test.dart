@@ -16,11 +16,7 @@ void main() {
     supabase = createTestSupabase();
     db = createTestDb();
     userId = await createTestUser(supabase);
-    tableSync = TableSync(
-      db: db,
-      supabase: supabase,
-      getUserId: () => userId,
-    );
+    tableSync = TableSync(db: db, supabase: supabase, getUserId: () => userId);
   });
 
   tearDown(() async {
@@ -145,9 +141,9 @@ void main() {
       );
 
       // Another device pushes a 3rd card with the SAME timestamp
-      await supabase.from('review_cards').upsert(
-        makeReviewCard(id: idC, userId: userId, updatedAt: t),
-      );
+      await supabase
+          .from('review_cards')
+          .upsert(makeReviewCard(id: idC, userId: userId, updatedAt: t));
 
       // Second pull: card-c must be fetched (gte includes the boundary)
       final pulled = await tableSync.pull(
@@ -184,9 +180,9 @@ void main() {
       );
 
       // Add another card with old timestamp (simulates late push from device)
-      await supabase.from('review_cards').upsert(
-        makeReviewCard(id: id3, userId: userId, updatedAt: t1),
-      );
+      await supabase
+          .from('review_cards')
+          .upsert(makeReviewCard(id: id3, userId: userId, updatedAt: t1));
 
       // Second pull, still no watermark → must fetch all including id3
       final pulled = await tableSync.pull(
@@ -206,9 +202,9 @@ void main() {
     test('watermark is updated after successful pull', () async {
       final t = '2026-04-15T08:00:00.000+00:00';
       final id1 = testUuid();
-      await supabase.from('review_cards').upsert(
-        makeReviewCard(id: id1, userId: userId, updatedAt: t),
-      );
+      await supabase
+          .from('review_cards')
+          .upsert(makeReviewCard(id: id1, userId: userId, updatedAt: t));
 
       await tableSync.pull(
         remoteTable: 'review_cards',
@@ -231,9 +227,9 @@ void main() {
 
     test('watermark is NOT updated when watermarkKey is null', () async {
       final id1 = testUuid();
-      await supabase.from('review_cards').upsert(
-        makeReviewCard(id: id1, userId: userId),
-      );
+      await supabase
+          .from('review_cards')
+          .upsert(makeReviewCard(id: id1, userId: userId));
 
       await tableSync.pull(
         remoteTable: 'review_cards',
