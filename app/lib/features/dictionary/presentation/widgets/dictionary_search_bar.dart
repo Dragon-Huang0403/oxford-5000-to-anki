@@ -10,6 +10,7 @@ class DictionarySearchBar extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onClear;
   final bool isOverlay;
+  final bool autofocus;
 
   const DictionarySearchBar({
     super.key,
@@ -21,6 +22,7 @@ class DictionarySearchBar extends StatelessWidget {
     required this.onBack,
     required this.onClear,
     this.isOverlay = false,
+    this.autofocus = true,
   });
 
   @override
@@ -42,7 +44,7 @@ class DictionarySearchBar extends StatelessWidget {
               onChanged: onChanged,
               onSubmitted: onSubmitted,
               textInputAction: TextInputAction.search,
-              autofocus: true,
+              autofocus: autofocus,
               decoration: InputDecoration(
                 hintText: 'Search for a word...',
                 prefixIcon: const Icon(Icons.search),
