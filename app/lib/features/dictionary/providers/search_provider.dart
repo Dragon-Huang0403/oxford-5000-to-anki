@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database_provider.dart';
+import '../domain/search_service.dart';
 
 enum SearchMatchSource { headword, definition, example }
 
@@ -265,108 +266,11 @@ final searchQueryProvider = NotifierProvider<SearchQueryNotifier, String>(
   SearchQueryNotifier.new,
 );
 
-/// Find the best matching snippet for a FTS result.
-SearchResult _buildFtsResult(DictEntry entry, String query) {
-  final q = query.toLowerCase();
-  // Check definitions first
-  for (final group in entry.groups) {
-    for (final sense in group.senses) {
-      final def = sense.sense['definition'] as String? ?? '';
-      if (def.toLowerCase().contains(q)) {
-        return SearchResult(
-          entry,
-          source: SearchMatchSource.definition,
-          snippet: def,
-        );
-      }
-    }
-  }
-  // Check examples
-  for (final group in entry.groups) {
-    for (final sense in group.senses) {
-      for (final ex in sense.examples) {
-        final text = ex['text_plain'] as String? ?? '';
-        if (text.toLowerCase().contains(q)) {
-          return SearchResult(
-            entry,
-            source: SearchMatchSource.example,
-            snippet: text,
-          );
-        }
-      }
-    }
-  }
-  // Fallback: first definition (FTS matched but query spans multiple tokens)
-  final firstDef =
-      entry.groups.firstOrNull?.senses.firstOrNull?.sense['definition']
-          as String? ??
-      '';
-  return SearchResult(
-    entry,
-    source: SearchMatchSource.definition,
-    snippet: firstDef,
-  );
-}
-
 /// Search results: full entries for the query
 final searchResultsProvider = FutureProvider<List<SearchResult>>((ref) async {
   final query = ref.watch(searchQueryProvider);
-  if (query.isEmpty) return [];
-
   final db = ref.read(dictionaryDbProvider);
-
-  // 1. Exact match (includes all POS for a word)
-  var rows = await db.lookupWord(query);
-
-  // 2. Variant spelling
-  if (rows.isEmpty) {
-    rows = await db.lookupVariant(query);
-  }
-
-  // 3. Fuzzy (suffix stripping)
-  if (rows.isEmpty) {
-    rows = await db.fuzzyLookup(query);
-  }
-
-  // 4. Prefix autocomplete (LIKE)
-  if (rows.isEmpty) {
-    rows = await db.searchPrefix(query, limit: 15);
-    final headwords = <String>{};
-    final expanded = <Map<String, dynamic>>[];
-    for (final r in rows) {
-      final hw = r['headword'] as String;
-      if (headwords.add(hw)) {
-        expanded.addAll(await db.lookupWord(hw));
-      }
-    }
-    rows = expanded;
-  }
-
-  // 5. Fuzzy search (Levenshtein) for typo tolerance
-  if (rows.isEmpty && query.length >= 3) {
-    rows = await db.fuzzySearch(query, limit: 10, maxDistance: 2);
-  }
-
-  // Load headword-match entries
-  final headwordIds = rows.map((r) => r['id'] as int).toSet();
-  final entries = await Future.wait(rows.map((row) => loadFullEntry(db, row)));
-  final results = entries.map((e) => SearchResult(e)).toList();
-
-  // Always append FTS results (definitions/examples) if query is 2+ chars
-  if (query.length >= 2) {
-    final ftsRows = await db.searchDefinitions(query, limit: 15);
-    final newFtsRows = ftsRows
-        .where((r) => !headwordIds.contains(r['id'] as int))
-        .toList();
-    if (newFtsRows.isNotEmpty) {
-      final ftsEntries = await Future.wait(
-        newFtsRows.map((row) => loadFullEntry(db, row)),
-      );
-      results.addAll(ftsEntries.map((e) => _buildFtsResult(e, query)));
-    }
-  }
-
-  return results;
+  return searchEntries(db, query);
 });
 
 /// Autocomplete suggestions (lightweight - just headwords, no full load)
