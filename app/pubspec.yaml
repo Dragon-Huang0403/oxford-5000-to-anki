@@ -51,6 +51,11 @@ dependencies:
   path_provider: any
   collection: any
 
+  # Logging & monitoring
+  talker_flutter: any
+  talker_riverpod_logger: any
+  sentry_flutter: any
+
   # macOS quick search (global hotkey + window + tray)
   hotkey_manager: any
   window_manager: any

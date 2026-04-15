@@ -14,3 +14,8 @@ const supabaseAnonKey = String.fromEnvironment(
   'SUPABASE_ANON_KEY',
   defaultValue: '', // set via --dart-define for dev/prod
 );
+
+const sentryDsn = String.fromEnvironment(
+  'SENTRY_DSN',
+  defaultValue: '', // set via --dart-define for dev/prod
+);
