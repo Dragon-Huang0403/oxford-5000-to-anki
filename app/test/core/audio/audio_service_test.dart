@@ -374,7 +374,7 @@ void main() {
       final progressCalls = <(int, int)>[];
       final downloadFuture = service.downloadAll(
         client: client,
-        onProgress: (completed, total, _, __, ___, ____) {
+        onProgress: (completed, total, _, _, _, _) {
           progressCalls.add((completed, total));
         },
       );
@@ -408,7 +408,7 @@ void main() {
       final progressCalls = <(int, int)>[];
       await service.downloadAll(
         client: client,
-        onProgress: (completed, total, _, __, ___, ____) {
+        onProgress: (completed, total, _, _, _, _) {
           progressCalls.add((completed, total));
         },
       );
@@ -551,7 +551,7 @@ void main() {
       var roundSeen = false;
       await service.downloadAll(
         client: client,
-        onProgress: (_, __, ___, ____, round, ______) {
+        onProgress: (_, _, _, _, round, _) {
           if (round > 0) roundSeen = true;
         },
         isCancelled: () => roundSeen,
@@ -595,7 +595,7 @@ void main() {
       var cancelAfterRound0 = false;
       await service.downloadAll(
         client: client,
-        onProgress: (_, __, ___, ____, round, ______) {
+        onProgress: (_, _, _, _, round, _) {
           if (round > 0) cancelAfterRound0 = true;
         },
         isCancelled: () => cancelAfterRound0,
