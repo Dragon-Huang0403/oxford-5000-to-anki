@@ -157,4 +157,21 @@ class SettingsDao {
   Future<String?> getSkippedVersion() => get('skipped_version');
   Future<void> setSkippedVersion(String version) =>
       set('skipped_version', version);
+
+  // ── Device identification ─────────────────────────────────────────────
+
+  static const _deviceIdKey = 'device_id';
+
+  /// Returns the persistent device ID, or null if not yet generated.
+  Future<String?> getDeviceId() => get(_deviceIdKey);
+
+  /// Stores the device ID. Bypasses onSettingChanged since device_id
+  /// is local-only and should never sync.
+  Future<void> setDeviceId(String id) async {
+    await _db
+        .into(_db.settings)
+        .insertOnConflictUpdate(
+          SettingsCompanion.insert(key: _deviceIdKey, value: id),
+        );
+  }
 }

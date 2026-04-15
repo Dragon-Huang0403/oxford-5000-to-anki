@@ -221,4 +221,22 @@ void main() {
       await expectLater(dao.set('some_key', 'some_value'), completes);
     });
   });
+
+  group('device ID', () {
+    test('getDeviceId returns null when not set', () async {
+      expect(await dao.getDeviceId(), isNull);
+    });
+
+    test('setDeviceId then getDeviceId returns stored value', () async {
+      await dao.setDeviceId('test-device-123');
+      expect(await dao.getDeviceId(), 'test-device-123');
+    });
+
+    test('setDeviceId does not trigger onSettingChanged', () async {
+      final calls = <(String, String)>[];
+      dao.onSettingChanged = (key, value) => calls.add((key, value));
+      await dao.setDeviceId('device-abc');
+      expect(calls, isEmpty);
+    });
+  });
 }
