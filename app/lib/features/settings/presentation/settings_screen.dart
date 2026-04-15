@@ -2,9 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:talker_flutter/talker_flutter.dart';
 import '../../../app_providers.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/build_info.dart';
+import '../../../core/logging/logging_service.dart';
 import '../../review/providers/review_providers.dart';
 import '../../../core/sync/sync_provider.dart';
 import '../../../main.dart';
@@ -147,9 +149,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
             const SizedBox(height: 24),
             Center(
-              child: Text(
-                'v$appVersion${isDevBuild ? '-dev' : ''} · ${buildCommit.length > 7 ? buildCommit.substring(0, 7) : buildCommit}',
-                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+              child: GestureDetector(
+                onLongPress: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TalkerScreen(talker: globalTalker),
+                  ),
+                ),
+                child: Text(
+                  'v$appVersion${isDevBuild ? '-dev' : ''} · ${buildCommit.length > 7 ? buildCommit.substring(0, 7) : buildCommit}',
+                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                ),
               ),
             ),
             const SizedBox(height: 24),
