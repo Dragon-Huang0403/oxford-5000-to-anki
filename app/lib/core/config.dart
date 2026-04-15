@@ -24,3 +24,5 @@ const sentryEnvironment = String.fromEnvironment(
   'SENTRY_ENVIRONMENT',
   defaultValue: 'development',
 );
+
+const bool isDevBuild = sentryEnvironment != 'production';

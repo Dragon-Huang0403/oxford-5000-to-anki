@@ -6,6 +6,7 @@ import 'package:talker_flutter/talker_flutter.dart';
 import '../../../app_providers.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/build_info.dart';
+import '../../../core/config.dart';
 import '../../../core/logging/logging_service.dart';
 import '../../review/providers/review_providers.dart';
 import '../../../core/sync/sync_provider.dart';
