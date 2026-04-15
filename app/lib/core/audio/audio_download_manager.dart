@@ -41,6 +41,9 @@ class AudioDownloadManager {
   final _extractionQueue = <String>[];
   bool _extracting = false;
 
+  /// Completes when the current extraction run finishes (for cancel to await).
+  Completer<void>? _extractionDone;
+
   /// Completes when all enqueued tasks reach a final state.
   Completer<void>? _allDone;
   int _pendingTasks = 0;
@@ -66,8 +69,6 @@ class AudioDownloadManager {
 
   /// External cancellation check (from OfflineAudioNotifier).
   bool Function()? isCancelled;
-
-  StreamSubscription<TaskUpdate>? _updatesSub;
 
   AudioDownloadManager(
     this._audioService,
@@ -151,6 +152,7 @@ class AudioDownloadManager {
       _currentRound = round;
       _failedThisRound = 0;
       _consecutiveFailures = 0;
+      _extractionQueue.clear();
 
       final alreadyDone = await _audioDB.getCompletedPacks();
       _packsCompleted = alreadyDone.length;
@@ -176,16 +178,21 @@ class AudioDownloadManager {
         if (stale()) return;
       }
 
-      // Listen for updates before enqueueing.
-      _listenForUpdates(gen);
+      // Register callbacks before enqueueing.
+      _registerCallbacks(gen);
 
       await _enqueuePacks(remaining, gen);
-      if (stale()) return;
+      if (stale()) {
+        _dispatcher.unregisterCallbacks(_group);
+        return;
+      }
 
       // Wait for all tasks in this round to reach a final state.
       await _allDone?.future;
-      _updatesSub?.cancel();
-      _updatesSub = null;
+      _dispatcher.unregisterCallbacks(_group);
+
+      // Wait for any trailing extraction to finish before next round.
+      if (_extracting) await _extractionDone?.future;
 
       if (stale()) return;
       if (_failedThisRound == 0) {
@@ -207,14 +214,20 @@ class AudioDownloadManager {
   }
 
   /// Cancel any active downloads and clean up staging directory.
+  ///
+  /// Waits for any in-progress extraction isolate to finish before returning,
+  /// so callers can safely touch the database after this resolves.
   Future<void> cancelDownload() async {
     _generation++;
     debugPrint('[AudioDL] cancel requested, generation=$_generation');
-    _updatesSub?.cancel();
-    _updatesSub = null;
-    _allDone?.complete();
-    _allDone = null;
+    _extractionQueue.clear();
+    _pendingTasks = 0;
+    _dispatcher.unregisterCallbacks(_group);
+    _completeAllDone();
     await _dispatcher.reset(_group);
+    // Wait for any in-progress extraction to finish — the isolate can't be
+    // interrupted, but the stale check prevents DB writes after it returns.
+    if (_extracting) await _extractionDone?.future;
     await _cleanStagingDir();
   }
 
@@ -256,10 +269,10 @@ class AudioDownloadManager {
       );
       _pendingTasks = activeTasks.length;
       _allDone = Completer<void>();
-      _listenForUpdates(gen);
+      _registerCallbacks(gen);
       await _allDone?.future;
-      _updatesSub?.cancel();
-      _updatesSub = null;
+      _dispatcher.unregisterCallbacks(_group);
+      if (_extracting) await _extractionDone?.future;
     }
 
     // 3. Re-enqueue remaining packs if needed.
@@ -271,7 +284,7 @@ class AudioDownloadManager {
   }
 
   void dispose() {
-    _updatesSub?.cancel();
+    _dispatcher.unregisterCallbacks(_group);
   }
 
   // ---------------------------------------------------------------------------
@@ -318,20 +331,16 @@ class AudioDownloadManager {
         baseDirectory: BaseDirectory.root,
         group: _group,
         retries: 3,
-        updates: Updates.statusAndProgress,
+        updates: Updates.status,
       );
       await _dispatcher.enqueue(task);
     }
   }
 
-  void _listenForUpdates(int gen) {
-    _updatesSub?.cancel();
-    _updatesSub = _dispatcher.updates.listen((update) {
+  void _registerCallbacks(int gen) {
+    _dispatcher.registerStatusCallback(_group, (update) {
       if (_generation != gen) return;
-
-      if (update is TaskStatusUpdate) {
-        _handleStatusUpdate(update, gen);
-      }
+      _handleStatusUpdate(update, gen);
     });
   }
 
@@ -356,21 +365,35 @@ class AudioDownloadManager {
           'failures, cancelling remaining',
         );
         _dispatcher.reset(_group);
+        // reset() silently drops tasks without emitting status updates.
+        // Account for remaining pending tasks so _allDone completes.
+        _pendingTasks = 0;
+        _fireProgress(_failedThisRound);
+        _completeAllDone();
+        return;
       }
 
       _pendingTasks--;
       _fireProgress(_failedThisRound);
-      _checkAllDone();
+      _completeAllDone();
     }
   }
 
   Future<void> _processExtractionQueue(int gen) async {
     if (_extracting) return;
     _extracting = true;
+    _extractionDone = Completer<void>();
 
     try {
       while (_extractionQueue.isNotEmpty) {
-        if (_generation != gen) return;
+        if (_generation != gen) {
+          // Stale — drain remaining as failed so _pendingTasks stays accurate.
+          final dropped = _extractionQueue.length;
+          _extractionQueue.clear();
+          _pendingTasks -= dropped;
+          _completeAllDone();
+          return;
+        }
         final packName = _extractionQueue.removeAt(0);
         final stagingPath = await _getStagingPath();
         final tarPath = '$stagingPath/$packName';
@@ -380,12 +403,16 @@ class AudioDownloadManager {
           _failedThisRound++;
           _pendingTasks--;
           _fireProgress(_failedThisRound);
-          _checkAllDone();
+          _completeAllDone();
           continue;
         }
 
         final extracted = await _extractPack(packName, tarPath, gen);
-        if (_generation != gen) return;
+        if (_generation != gen) {
+          _pendingTasks--;
+          _completeAllDone();
+          return;
+        }
 
         if (extracted > 0) {
           _packsCompleted++;
@@ -396,10 +423,12 @@ class AudioDownloadManager {
 
         _pendingTasks--;
         _fireProgress(_failedThisRound);
-        _checkAllDone();
+        _completeAllDone();
       }
     } finally {
       _extracting = false;
+      _extractionDone?.complete();
+      _extractionDone = null;
     }
   }
 
@@ -432,7 +461,8 @@ class AudioDownloadManager {
     );
   }
 
-  void _checkAllDone() {
+  /// Complete [_allDone] if pending tasks are done, guarding against double-complete.
+  void _completeAllDone() {
     if (_pendingTasks <= 0 && _allDone != null && !_allDone!.isCompleted) {
       _allDone!.complete();
     }

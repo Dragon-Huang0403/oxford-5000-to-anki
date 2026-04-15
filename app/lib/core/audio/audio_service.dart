@@ -242,7 +242,6 @@ class AudioDb {
     await _db!.customStatement('DELETE FROM audio_files');
     await _db!.customStatement('DELETE FROM completed_packs');
     await _db!.customStatement('DELETE FROM meta');
-    await _db!.customStatement('VACUUM');
   }
 
   Future<void> close() async {

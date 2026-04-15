@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:drift/drift.dart';
@@ -14,17 +13,15 @@ import 'package:deckionary/core/audio/download_dispatcher.dart';
 import 'audio_service_test.dart'; // buildTar, buildManifest, createTestAudioDb
 
 // ---------------------------------------------------------------------------
-// Mock DownloadDispatcher
+// Mock DownloadDispatcher (callback-based, matching real API)
 // ---------------------------------------------------------------------------
 
 class MockDownloadDispatcher implements DownloadDispatcher {
-  final _updatesController = StreamController<TaskUpdate>.broadcast();
   final enqueuedTasks = <DownloadTask>[];
   final _activeTasks = <Task>[];
   int resetCount = 0;
 
-  @override
-  Stream<TaskUpdate> get updates => _updatesController.stream;
+  TaskStatusCallback? _statusCallback;
 
   @override
   Future<bool> enqueue(DownloadTask task) async {
@@ -56,21 +53,29 @@ class MockDownloadDispatcher implements DownloadDispatcher {
     bool progressBar = false,
   }) {}
 
-  /// Simulate a task completing: emit status update.
+  @override
+  void registerStatusCallback(String group, TaskStatusCallback callback) {
+    _statusCallback = callback;
+  }
+
+  @override
+  void unregisterCallbacks(String group) {
+    _statusCallback = null;
+  }
+
+  /// Simulate a task completing: invoke registered callback.
   void completeTask(String filename) {
     final task = enqueuedTasks.firstWhere((t) => t.filename == filename);
     _activeTasks.remove(task);
-    _updatesController.add(TaskStatusUpdate(task, TaskStatus.complete));
+    _statusCallback?.call(TaskStatusUpdate(task, TaskStatus.complete));
   }
 
   /// Simulate a task failing.
   void failTask(String filename) {
     final task = enqueuedTasks.firstWhere((t) => t.filename == filename);
     _activeTasks.remove(task);
-    _updatesController.add(TaskStatusUpdate(task, TaskStatus.failed));
+    _statusCallback?.call(TaskStatusUpdate(task, TaskStatus.failed));
   }
-
-  void dispose() => _updatesController.close();
 }
 
 // ---------------------------------------------------------------------------
@@ -118,7 +123,6 @@ void main() {
   });
 
   tearDown(() async {
-    dispatcher.dispose();
     manager.dispose();
     await db.close();
     if (tmpDir.existsSync()) tmpDir.deleteSync(recursive: true);
@@ -126,10 +130,7 @@ void main() {
 
   group('startDownload', () {
     test('enqueues remaining packs from manifest', () async {
-      // Start download in background — it will wait for task updates
       final downloadFuture = manager.startDownload();
-
-      // Give time for manifest fetch + enqueue
       await Future.delayed(const Duration(milliseconds: 50));
 
       expect(dispatcher.enqueuedTasks, hasLength(2));
@@ -138,7 +139,6 @@ void main() {
         containsAll(['pack_00.tar', 'pack_01.tar']),
       );
 
-      // Complete both tasks by writing tar files and emitting status updates
       for (final name in ['pack_00.tar', 'pack_01.tar']) {
         final tar = buildTar({
           '${name}_audio.mp3': Uint8List.fromList([1, 2]),
@@ -157,7 +157,6 @@ void main() {
       final downloadFuture = manager.startDownload();
       await Future.delayed(const Duration(milliseconds: 50));
 
-      // Only pack_01 should be enqueued
       expect(dispatcher.enqueuedTasks, hasLength(1));
       expect(dispatcher.enqueuedTasks.first.filename, 'pack_01.tar');
 
@@ -180,7 +179,6 @@ void main() {
       final downloadFuture = manager.startDownload();
       await Future.delayed(const Duration(milliseconds: 50));
 
-      // Initial progress fires with 0 completed, 2 total
       expect(progressCalls, isNotEmpty);
       expect(progressCalls.first, (0, 2));
 
@@ -191,8 +189,6 @@ void main() {
       dispatcher.completeTask('pack_00.tar');
 
       await Future.delayed(const Duration(milliseconds: 50));
-
-      // After first pack, should have 1 completed
       expect(progressCalls.last.$1, 1);
 
       File('${tmpDir.path}/pack_01.tar').writeAsBytesSync(tar);
@@ -217,24 +213,20 @@ void main() {
       final downloadFuture = manager.startDownload();
       await Future.delayed(const Duration(milliseconds: 50));
 
-      // Write a staged file
       File('${tmpDir.path}/pack_00.tar').writeAsBytesSync([1, 2, 3]);
 
       await manager.cancelDownload();
 
       expect(dispatcher.resetCount, 1);
-      // Staging dir should be cleaned
       final staged = tmpDir.listSync().whereType<File>();
       expect(staged, isEmpty);
 
-      // The download future should complete (not hang)
       await downloadFuture;
     });
   });
 
   group('circuit breaker', () {
-    test('resets dispatcher after 5 consecutive failures', () async {
-      // Create 10-pack manifest
+    test('completes round after 5 consecutive failures', () async {
       final packNames = List.generate(
         10,
         (i) => 'pack_${i.toString().padLeft(2, '0')}.tar',
@@ -252,62 +244,50 @@ void main() {
       final downloadFuture = testManager.startDownload();
       await Future.delayed(const Duration(milliseconds: 50));
 
-      // Fail 5 packs consecutively
+      // Fail 5 packs consecutively — circuit breaker fires
       for (var i = 0; i < 5; i++) {
         testDispatcher.failTask('pack_${i.toString().padLeft(2, '0')}.tar');
         await Future.delayed(const Duration(milliseconds: 10));
       }
 
-      // Circuit breaker should have called reset
+      // Circuit breaker should have called reset and unblocked _allDone
       await Future.delayed(const Duration(milliseconds: 50));
       expect(testDispatcher.resetCount, greaterThanOrEqualTo(1));
 
-      testDispatcher.dispose();
+      // Cancel to avoid retry round backoff delays
+      await testManager.cancelDownload();
       testManager.dispose();
 
-      // Cancel to avoid retry rounds
-      await testManager.cancelDownload();
       try {
         await downloadFuture;
       } catch (_) {
-        // Expected - may throw after all retry rounds
+        // Expected — may throw after retry rounds
       }
     });
   });
 
   group('recoverPendingWork', () {
     test('extracts staged tar files from previous session', () async {
-      // Simulate: a tar was downloaded but app killed before extraction
       final tar = buildTar({
         'recovered.mp3': Uint8List.fromList([7, 8, 9]),
       });
       File('${tmpDir.path}/pack_00.tar').writeAsBytesSync(tar);
-
-      // Pre-mark pack_01 as already done
       await db.markPackComplete('pack_01.tar');
 
       await manager.recoverPendingWork();
 
-      // pack_00 should have been extracted from the staged tar
       expect(await db.getCompletedPacks(), contains('pack_00.tar'));
       expect(await db.get('recovered.mp3'), Uint8List.fromList([7, 8, 9]));
-
-      // Tar file should be cleaned up
       expect(File('${tmpDir.path}/pack_00.tar').existsSync(), isFalse);
     });
 
     test('deletes staged tar for already-completed pack', () async {
       await db.markPackComplete('pack_00.tar');
-
-      // Stale tar from a previous session
       File('${tmpDir.path}/pack_00.tar').writeAsBytesSync([1, 2, 3]);
-
-      // Also mark pack_01 as complete to avoid re-download
       await db.markPackComplete('pack_01.tar');
 
       await manager.recoverPendingWork();
 
-      // Stale tar should be deleted
       expect(File('${tmpDir.path}/pack_00.tar').existsSync(), isFalse);
     });
   });

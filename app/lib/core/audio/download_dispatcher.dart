@@ -15,8 +15,11 @@ abstract class DownloadDispatcher {
   /// Return all active tasks (enqueued, running, waiting to retry) in [group].
   Future<List<Task>> allTasks(String group);
 
-  /// Stream of [TaskUpdate]s for tasks that don't have a registered callback.
-  Stream<TaskUpdate> get updates;
+  /// Register a status callback for a [group].
+  void registerStatusCallback(String group, TaskStatusCallback callback);
+
+  /// Unregister all callbacks for a [group].
+  void unregisterCallbacks(String group);
 
   /// Configure max concurrent downloads and notifications.
   Future<void> configure({int maxConcurrent = 3});
@@ -44,7 +47,17 @@ class BackgroundDownloaderDispatcher implements DownloadDispatcher {
       FileDownloader().allTasks(group: group);
 
   @override
-  Stream<TaskUpdate> get updates => FileDownloader().updates;
+  void registerStatusCallback(String group, TaskStatusCallback callback) {
+    FileDownloader().registerCallbacks(
+      group: group,
+      taskStatusCallback: callback,
+    );
+  }
+
+  @override
+  void unregisterCallbacks(String group) {
+    FileDownloader().unregisterCallbacks(group: group);
+  }
 
   @override
   Future<void> configure({int maxConcurrent = 3}) async {
