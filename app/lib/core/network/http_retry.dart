@@ -37,14 +37,7 @@ Future<http.Response> httpGetWithRetry(
     if (isCancelled?.call() ?? false) throw const CancelledException();
 
     try {
-      final sw = Stopwatch()..start();
       final response = await client.get(url).timeout(timeout);
-      sw.stop();
-
-      debugPrint(
-        'httpGetWithRetry: ${response.statusCode} for $url '
-        '(${sw.elapsedMilliseconds}ms)',
-      );
 
       // Success or non-retryable client error — return immediately
       if (response.statusCode < 500 && response.statusCode != 429) {

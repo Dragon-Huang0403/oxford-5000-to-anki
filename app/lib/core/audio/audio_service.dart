@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:sqlite3/sqlite3.dart' as raw;
 import '../config.dart';
 import '../network/http_retry.dart';
 
@@ -54,10 +55,33 @@ List<MapEntry<String, Uint8List>> _parseTar(Uint8List tarBytes) {
   return files;
 }
 
+/// Top-level function for compute() — parses tar AND inserts into SQLite,
+/// all in one background isolate. Avoids inter-isolate round-trips for each row.
+int _parseTarAndInsert((Uint8List, String) args) {
+  final (tarBytes, dbPath) = args;
+  final db = raw.sqlite3.open(dbPath);
+  try {
+    final files = _parseTar(tarBytes);
+    final stmt = db.prepare(
+      'INSERT OR REPLACE INTO audio_files (filename, data) VALUES (?, ?)',
+    );
+    db.execute('BEGIN TRANSACTION');
+    for (final entry in files) {
+      stmt.execute([entry.key, entry.value]);
+    }
+    db.execute('COMMIT');
+    stmt.close();
+    return files.length;
+  } finally {
+    db.close();
+  }
+}
+
 /// Local SQLite database for cached audio BLOBs.
 /// Same schema as the server's audio_files table.
 class AudioDb {
   GeneratedDatabase? _db;
+  String? _dbPath;
   bool _initialized = false;
 
   AudioDb();
@@ -70,10 +94,17 @@ class AudioDb {
     if (_db == null) {
       final dir = await getApplicationDocumentsDirectory();
       final file = File('${dir.path}/audio.db');
+      _dbPath = file.path;
       _db = _RawDb(NativeDatabase.createInBackground(file));
     }
     await _createTables();
     _initialized = true;
+  }
+
+  /// Returns the database file path, or null for in-memory test databases.
+  Future<String?> getDbPath() async {
+    await init();
+    return _dbPath;
   }
 
   Future<void> _createTables() async {
@@ -528,12 +559,16 @@ class AudioService {
     if (running.isNotEmpty) await Future.wait(running);
   }
 
-  /// Parse tar archive on a background isolate, then batch-insert into audio.db.
+  /// Parse tar and insert into audio.db entirely on a background isolate.
+  /// Falls back to main-thread putBatch for in-memory test databases.
   Future<int> _extractTar(Uint8List tarBytes) async {
-    final entries = await compute(_parseTar, tarBytes);
-    final files = entries
-        .map((e) => (e.key, e.value))
-        .toList(growable: false);
+    final dbPath = await _audioDB.getDbPath();
+    if (dbPath != null) {
+      return compute(_parseTarAndInsert, (tarBytes, dbPath));
+    }
+    // In-memory test DB — can't open a second connection, use Drift path
+    final entries = _parseTar(tarBytes);
+    final files = entries.map((e) => (e.key, e.value)).toList(growable: false);
     await _audioDB.putBatch(files);
     return files.length;
   }
