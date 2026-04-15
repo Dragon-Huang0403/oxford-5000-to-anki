@@ -81,18 +81,18 @@ class ShowOnScreenTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final current = _options.containsKey(value) ? value : 'mouse';
     return ListTile(
       title: const Text('Show window on'),
-      trailing: DropdownButton<String>(
-        value: _options.containsKey(value) ? value : 'mouse',
-        underline: const SizedBox.shrink(),
-        onChanged: (val) async {
-          if (val == null) return;
+      subtitle: Text(_options[current]!),
+      trailing: PopupMenuButton<String>(
+        initialValue: current,
+        onSelected: (val) async {
           await ref.read(settingsDaoProvider).setShowOnScreen(val);
           ref.invalidate(settingsStateProvider);
         },
-        items: _options.entries
-            .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+        itemBuilder: (_) => _options.entries
+            .map((e) => PopupMenuItem(value: e.key, child: Text(e.value)))
             .toList(),
       ),
     );
