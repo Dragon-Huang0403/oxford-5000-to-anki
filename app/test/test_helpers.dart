@@ -35,6 +35,8 @@ Future<void> insertReviewCard(
   required String due,
   int state = 0,
   int step = 0,
+  double stability = 0,
+  double difficulty = 0,
   String? lastReview,
 }) async {
   await db.into(db.reviewCards).insert(
@@ -44,8 +46,8 @@ Future<void> insertReviewCard(
       headword: headword,
       due: due,
       pos: Value(pos),
-      stability: const Value(0),
-      difficulty: const Value(0),
+      stability: Value(stability),
+      difficulty: Value(difficulty),
       state: Value(state),
       step: Value(step),
       lastReview: Value(lastReview),
