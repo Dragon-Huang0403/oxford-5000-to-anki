@@ -89,6 +89,13 @@ jobs:
           --dart-define=SENTRY_DSN=${{ secrets.SENTRY_DSN }}
           --dart-define=SENTRY_ENVIRONMENT=internal
 
+      - name: Upload Sentry debug symbols & associate commits
+        run: dart run sentry_dart_plugin
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
       - name: Decode Google Play service account
         run: echo "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}" | base64 -d > /tmp/service-account.json
 

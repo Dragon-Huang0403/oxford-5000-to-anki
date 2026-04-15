@@ -69,8 +69,14 @@ dev_dependencies:
   drift_dev: any
   build_runner: any
   supabase: any
+  sentry_dart_plugin: any
 
 flutter:
   uses-material-design: true
   assets:
     - assets/
+
+sentry:
+  upload_debug_symbols: true
+  commits: auto
+  ignore_missing: true

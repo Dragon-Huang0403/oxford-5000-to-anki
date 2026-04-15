@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:talker_riverpod_logger/talker_riverpod_logger.dart';
 import 'package:window_manager/window_manager.dart';
 import 'firebase_options.dart';
+import 'core/build_info.dart';
 import 'core/config.dart';
 import 'core/database/database_provider.dart';
 import 'core/database/settings_dao.dart';
@@ -48,6 +49,8 @@ void main() async {
       (options) {
         options.dsn = sentryDsn;
         options.environment = sentryEnvironment;
+        options.release = 'deckionary@$appVersion';
+        options.dist = appBuildNumber.toString();
       },
       appRunner: () => _runApp(),
     );

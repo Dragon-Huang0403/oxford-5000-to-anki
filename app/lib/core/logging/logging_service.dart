@@ -4,6 +4,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:uuid/uuid.dart';
+import '../build_info.dart';
 import '../config.dart';
 import '../database/settings_dao.dart';
 import 'log_flush_service.dart';
@@ -57,6 +58,7 @@ Future<void> initLogging({
     Sentry.configureScope((scope) {
       scope.setTag('device_id', globalDeviceId);
       scope.setTag('platform', defaultTargetPlatform.name);
+      scope.setTag('build_commit', buildCommit);
     });
   }
 
