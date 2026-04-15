@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database_provider.dart';
 import '../../dictionary/presentation/widgets/entry_card_header.dart';
 import '../providers/my_words_providers.dart';
+import 'word_detail_screen.dart';
 
 class MyWordsScreen extends ConsumerStatefulWidget {
   const MyWordsScreen({super.key});
@@ -57,6 +58,18 @@ class _MyWordsScreenState extends ConsumerState<MyWordsScreen> {
     if (dictEntryId != null) {
       await dao.deleteReviewCard(dictEntryId);
     }
+  }
+
+  Future<void> _openDetail(int entryId) async {
+    final dictDb = ref.read(dictionaryDbProvider);
+    final entries = await dictDb.getEntriesByIds([entryId]);
+    if (entries.isEmpty || !mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WordDetailScreen(entryRow: entries.first),
+      ),
+    );
   }
 
   void _showImportSheet() {
@@ -228,6 +241,7 @@ class _MyWordsScreenState extends ConsumerState<MyWordsScreen> {
                           return _WordListTile(
                             entry: item,
                             onRemove: () => _removeEntry(item),
+                            onTap: () => _openDetail(item.entryId),
                           );
                         },
                       ),
@@ -298,8 +312,13 @@ class _MyWordsScreenState extends ConsumerState<MyWordsScreen> {
 class _WordListTile extends StatelessWidget {
   final VocabularyListEntry entry;
   final VoidCallback onRemove;
+  final VoidCallback? onTap;
 
-  const _WordListTile({required this.entry, required this.onRemove});
+  const _WordListTile({
+    required this.entry,
+    required this.onRemove,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -333,6 +352,7 @@ class _WordListTile extends StatelessWidget {
         icon: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
         onPressed: onRemove,
       ),
+      onTap: onTap,
     );
   }
 }

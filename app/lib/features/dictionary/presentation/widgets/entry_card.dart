@@ -27,16 +27,22 @@ class EntryCard extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header: headword + POS + badges
-              EntryCardHeader(
-                headword: entry.headword,
-                pos: entry.pos,
-                cefrLevel: entry.cefrLevel,
-                ox3000: entry.ox3000,
-                ox5000: entry.ox5000,
+              // Header: headword + POS + badges + My Words toggle
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: EntryCardHeader(
+                      headword: entry.headword,
+                      pos: entry.pos,
+                      cefrLevel: entry.cefrLevel,
+                      ox3000: entry.ox3000,
+                      ox5000: entry.ox5000,
+                    ),
+                  ),
+                  _MyWordsButton(entry: entry),
+                ],
               ),
-              // My Words toggle
-              _MyWordsButton(entry: entry),
               // Phonetics
               if (entry.pronunciations.isNotEmpty)
                 EntryPhonetics(entry.pronunciations),
@@ -117,13 +123,11 @@ class _MyWordsButton extends ConsumerWidget {
     final containsAsync = ref.watch(myWordsContainsProvider(entry.id));
     final isAdded = containsAsync.value ?? false;
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 4),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => _toggle(ref, isAdded),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => _toggle(ref, isAdded),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -147,8 +151,7 @@ class _MyWordsButton extends ConsumerWidget {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   Future<void> _toggle(WidgetRef ref, bool isAdded) async {
