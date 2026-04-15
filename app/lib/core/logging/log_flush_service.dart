@@ -9,6 +9,7 @@ import '../build_info.dart';
 /// Flush triggers: every 30 minutes, on app resume, or buffer >= 50 entries.
 class LogFlushService with WidgetsBindingObserver {
   final String _deviceId;
+  final String? Function() _getUserId;
   final Future<void> Function(List<Map<String, dynamic>> batch) _insertBatch;
   final List<Map<String, dynamic>> _buffer = [];
   Timer? _timer;
@@ -21,6 +22,7 @@ class LogFlushService with WidgetsBindingObserver {
     required SupabaseClient supabase,
     required String deviceId,
   })  : _deviceId = deviceId,
+        _getUserId = (() => supabase.auth.currentUser?.id),
         _insertBatch = ((batch) => supabase.from('app_logs').insert(batch));
 
   /// Test constructor — uses a custom flush callback.
@@ -28,6 +30,7 @@ class LogFlushService with WidgetsBindingObserver {
     required String deviceId,
     required Future<void> Function(List<Map<String, dynamic>> batch) onFlush,
   })  : _deviceId = deviceId,
+        _getUserId = (() => null),
         _insertBatch = onFlush;
 
   /// Number of buffered entries (exposed for testing).
@@ -77,6 +80,7 @@ class LogFlushService with WidgetsBindingObserver {
 
     return {
       'device_id': _deviceId,
+      'user_id': _getUserId(),
       'level': level,
       'tag': tag,
       'message': msg,

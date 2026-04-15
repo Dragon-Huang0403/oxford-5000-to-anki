@@ -19,3 +19,8 @@ const sentryDsn = String.fromEnvironment(
   'SENTRY_DSN',
   defaultValue: '', // set via --dart-define for dev/prod
 );
+
+const sentryEnvironment = String.fromEnvironment(
+  'SENTRY_ENVIRONMENT',
+  defaultValue: 'development',
+);
