@@ -44,11 +44,8 @@ class OfflineAudioNotifier extends AsyncNotifier<OfflineAudioState> {
     final complete = await audio.isDownloadComplete();
 
     // Auto-resume if user previously requested download and it's not done
-    if (!complete) {
-      final requested = await audio.audioDB.getMeta('download_requested');
-      if (requested == '1') {
-        Future.microtask(() => downloadAll());
-      }
+    if (!complete && await audio.wasDownloadRequested()) {
+      Future.microtask(() => downloadAll());
     }
 
     return OfflineAudioState(cachedFiles: count, allPacksComplete: complete);
@@ -62,7 +59,7 @@ class OfflineAudioNotifier extends AsyncNotifier<OfflineAudioState> {
     final audio = ref.read(audioServiceProvider);
 
     // Persist intent before starting
-    await audio.audioDB.setMeta('download_requested', '1');
+    await audio.markDownloadRequested();
 
     state = AsyncData(
       OfflineAudioState(
@@ -101,26 +98,30 @@ class OfflineAudioNotifier extends AsyncNotifier<OfflineAudioState> {
         },
       );
 
-      // If cancelled while running, don't overwrite state — cancelDownload() handled it
+      // If cancelled/cleared while running, don't overwrite state
       final postRun = state.whenOrNull(data: (s) => s);
       if (postRun != null && !postRun.downloading) return;
 
       // Success — clear the flag
-      await audio.audioDB.deleteMeta('download_requested');
+      await audio.clearDownloadRequested();
       final count = await audio.getCachedFileCount();
       final complete = await audio.isDownloadComplete();
       state = AsyncData(
         OfflineAudioState(cachedFiles: count, allPacksComplete: complete),
       );
     } catch (e) {
+      // If cancelled/cleared while running, don't overwrite state
+      final postRun = state.whenOrNull(data: (s) => s);
+      if (postRun != null && !postRun.downloading) return;
+
       // Don't clear download_requested — will auto-resume next launch
       debugPrint('OfflineAudioNotifier: download failed: $e');
       final count = await audio.getCachedFileCount();
-      final completed = await audio.audioDB.getCompletedPacks();
+      final completed = await audio.getCompletedPackCount();
       state = AsyncData(
         OfflineAudioState(
           cachedFiles: count,
-          completedPacks: completed.length,
+          completedPacks: completed,
           totalPacks: AudioDb.totalPacks,
           error: e.toString(),
         ),
@@ -131,7 +132,7 @@ class OfflineAudioNotifier extends AsyncNotifier<OfflineAudioState> {
   Future<void> cancelDownload() async {
     final audio = ref.read(audioServiceProvider);
     audio.cancelDownload();
-    await audio.audioDB.deleteMeta('download_requested');
+    await audio.clearDownloadRequested();
     final current =
         state.whenOrNull(data: (s) => s) ?? const OfflineAudioState();
     state = AsyncData(OfflineAudioState(cachedFiles: current.cachedFiles));
@@ -139,9 +140,13 @@ class OfflineAudioNotifier extends AsyncNotifier<OfflineAudioState> {
 
   Future<void> clearCache() async {
     final audio = ref.read(audioServiceProvider);
-    audio.cancelDownload();
-    await audio
-        .clearCache(); // deletes all meta rows including download_requested
+    try {
+      await audio.clearCache(); // increments generation + deletes all data
+    } catch (e) {
+      debugPrint('OfflineAudioNotifier: clearCache failed: $e');
+      state = AsyncData(OfflineAudioState(error: 'Failed to clear cache: $e'));
+      return;
+    }
     state = const AsyncData(OfflineAudioState());
   }
 }

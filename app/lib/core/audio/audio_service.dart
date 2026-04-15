@@ -13,37 +13,48 @@ import '../network/http_retry.dart';
 /// Local SQLite database for cached audio BLOBs.
 /// Same schema as the server's audio_files table.
 class AudioDb {
-  late final GeneratedDatabase _db;
+  GeneratedDatabase? _db;
   bool _initialized = false;
+
+  AudioDb();
+
+  /// In-memory DB for tests. Follows UserDatabase.forTesting pattern.
+  AudioDb.forTesting(QueryExecutor executor) : _db = _RawDb(executor);
 
   Future<void> init() async {
     if (_initialized) return;
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File('${dir.path}/audio.db');
-    _db = _RawDb(NativeDatabase(file));
-    await _db.customStatement('''
+    if (_db == null) {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/audio.db');
+      _db = _RawDb(NativeDatabase.createInBackground(file));
+    }
+    await _createTables();
+    _initialized = true;
+  }
+
+  Future<void> _createTables() async {
+    await _db!.customStatement('''
       CREATE TABLE IF NOT EXISTS audio_files (
         filename TEXT PRIMARY KEY,
         data BLOB NOT NULL
       )
     ''');
-    await _db.customStatement('''
+    await _db!.customStatement('''
       CREATE TABLE IF NOT EXISTS completed_packs (
         name TEXT PRIMARY KEY
       )
     ''');
-    await _db.customStatement('''
+    await _db!.customStatement('''
       CREATE TABLE IF NOT EXISTS meta (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       )
     ''');
-    _initialized = true;
   }
 
   Future<Uint8List?> get(String filename) async {
     await init();
-    final rows = await _db
+    final rows = await _db!
         .customSelect(
           'SELECT data FROM audio_files WHERE filename = ?',
           variables: [Variable.withString(filename)],
@@ -55,7 +66,7 @@ class AudioDb {
 
   Future<void> put(String filename, Uint8List data) async {
     await init();
-    await _db.customInsert(
+    await _db!.customInsert(
       'INSERT OR REPLACE INTO audio_files (filename, data) VALUES (?, ?)',
       variables: [Variable.withString(filename), Variable.withBlob(data)],
     );
@@ -65,9 +76,9 @@ class AudioDb {
   Future<void> putBatch(List<(String, Uint8List)> files) async {
     if (files.isEmpty) return;
     await init();
-    await _db.transaction(() async {
+    await _db!.transaction(() async {
       for (final (filename, data) in files) {
-        await _db.customInsert(
+        await _db!.customInsert(
           'INSERT OR REPLACE INTO audio_files (filename, data) VALUES (?, ?)',
           variables: [Variable.withString(filename), Variable.withBlob(data)],
         );
@@ -77,7 +88,7 @@ class AudioDb {
 
   Future<int> fileCount() async {
     await init();
-    final row = await _db
+    final row = await _db!
         .customSelect('SELECT COUNT(*) as c FROM audio_files')
         .getSingle();
     return row.data['c'] as int;
@@ -85,7 +96,7 @@ class AudioDb {
 
   Future<Set<String>> getCachedFilenames() async {
     await init();
-    final rows = await _db
+    final rows = await _db!
         .customSelect('SELECT filename FROM audio_files')
         .get();
     return rows.map((r) => r.data['filename'] as String).toSet();
@@ -93,7 +104,7 @@ class AudioDb {
 
   Future<Set<String>> getCompletedPacks() async {
     await init();
-    final rows = await _db
+    final rows = await _db!
         .customSelect('SELECT name FROM completed_packs')
         .get();
     return rows.map((r) => r.data['name'] as String).toSet();
@@ -101,7 +112,7 @@ class AudioDb {
 
   Future<void> markPackComplete(String name) async {
     await init();
-    await _db.customInsert(
+    await _db!.customInsert(
       'INSERT OR IGNORE INTO completed_packs (name) VALUES (?)',
       variables: [Variable.withString(name)],
     );
@@ -114,7 +125,7 @@ class AudioDb {
   /// Returns true if all audio packs have been downloaded.
   Future<bool> isDownloadComplete() async {
     await init();
-    final row = await _db
+    final row = await _db!
         .customSelect('SELECT COUNT(*) as c FROM completed_packs')
         .getSingle();
     return (row.data['c'] as int) >= totalPacks;
@@ -122,7 +133,7 @@ class AudioDb {
 
   Future<void> setMeta(String key, String value) async {
     await init();
-    await _db.customInsert(
+    await _db!.customInsert(
       'INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)',
       variables: [Variable.withString(key), Variable.withString(value)],
     );
@@ -130,7 +141,7 @@ class AudioDb {
 
   Future<String?> getMeta(String key) async {
     await init();
-    final rows = await _db
+    final rows = await _db!
         .customSelect(
           'SELECT value FROM meta WHERE key = ?',
           variables: [Variable.withString(key)],
@@ -142,7 +153,7 @@ class AudioDb {
 
   Future<void> deleteMeta(String key) async {
     await init();
-    await _db.customUpdate(
+    await _db!.customUpdate(
       'DELETE FROM meta WHERE key = ?',
       variables: [Variable.withString(key)],
       updates: {},
@@ -151,14 +162,14 @@ class AudioDb {
 
   Future<void> clear() async {
     await init();
-    await _db.customStatement('DELETE FROM audio_files');
-    await _db.customStatement('DELETE FROM completed_packs');
-    await _db.customStatement('DELETE FROM meta');
-    await _db.customStatement('VACUUM');
+    await _db!.customStatement('DELETE FROM audio_files');
+    await _db!.customStatement('DELETE FROM completed_packs');
+    await _db!.customStatement('DELETE FROM meta');
+    await _db!.customStatement('VACUUM');
   }
 
   Future<void> close() async {
-    if (_initialized) await _db.close();
+    if (_initialized) await _db!.close();
   }
 }
 
@@ -175,15 +186,18 @@ class _RawDb extends GeneratedDatabase {
 /// Audio service: plays from local audio.db, fetches from R2 on cache miss.
 class AudioService {
   final AudioPlayer _player = AudioPlayer();
-  final AudioDb audioDB = AudioDb();
+  final AudioDb _audioDB;
 
   static const _r2AudioUrl = '$r2BaseUrl/audio';
 
-  bool _downloadCancelled = false;
+  /// Incremented on cancel/clear. Each downloadAll captures its value at start
+  /// and stops when stale. Replaces the old boolean flag to prevent race
+  /// conditions between cancel, clear, and re-download.
+  int _generation = 0;
 
-  void cancelDownload() => _downloadCancelled = true;
+  void cancelDownload() => _generation++;
 
-  AudioService();
+  AudioService({AudioDb? db}) : _audioDB = db ?? AudioDb();
 
   /// Play audio by filename. Checks local DB first, fetches from API if missing.
   Future<void> play(String filename) async {
@@ -191,14 +205,14 @@ class AudioService {
 
     try {
       // Check local audio.db
-      var data = await audioDB.get(filename);
+      var data = await _audioDB.get(filename);
 
       if (data == null) {
         // Fetch from R2, store in audio.db
         final response = await http.get(Uri.parse('$_r2AudioUrl/$filename'));
         if (response.statusCode == 200) {
           data = response.bodyBytes;
-          await audioDB.put(filename, data);
+          await _audioDB.put(filename, data);
         } else {
           debugPrint(
             'AudioService: server returned ${response.statusCode} for $filename',
@@ -231,9 +245,23 @@ class AudioService {
     if (audioFile.isNotEmpty) await play(audioFile);
   }
 
+  // -- Facade methods: hide AudioDb from the notifier --
+
+  Future<bool> wasDownloadRequested() async =>
+      await _audioDB.getMeta('download_requested') == '1';
+
+  Future<void> markDownloadRequested() =>
+      _audioDB.setMeta('download_requested', '1');
+
+  Future<void> clearDownloadRequested() =>
+      _audioDB.deleteMeta('download_requested');
+
+  Future<int> getCompletedPackCount() async =>
+      (await _audioDB.getCompletedPacks()).length;
+
   /// Download all audio via pre-built tar packs from R2.
-  /// Fetches manifest, skips completed packs, downloads remaining in parallel.
-  /// Retries failed packs across multiple rounds with increasing backoff.
+  /// Fetches manifest, skips completed packs, downloads remaining with a
+  /// sliding-window pool. Retries failed packs across multiple rounds.
   Future<void> downloadAll({
     required void Function(
       int completedPacks,
@@ -245,16 +273,18 @@ class AudioService {
     )
     onProgress,
     bool Function()? isCancelled,
+    http.Client? client,
   }) async {
-    _downloadCancelled = false;
-    const packsUrl = '$r2BaseUrl/audio-packs';
-    final client = http.Client();
+    final gen = _generation;
+    bool stale() => _generation != gen || (isCancelled?.call() ?? false);
 
-    bool cancelled() => _downloadCancelled || (isCancelled?.call() ?? false);
+    const packsUrl = '$r2BaseUrl/audio-packs';
+    final ownClient = client == null;
+    final c = client ?? http.Client();
 
     try {
       final manifestRes = await httpGetWithRetry(
-        client,
+        c,
         Uri.parse('$packsUrl/manifest.json'),
         maxAttempts: 3,
         timeout: const Duration(seconds: 15),
@@ -265,18 +295,20 @@ class AudioService {
       final manifest = (jsonDecode(manifestRes.body) as List)
           .cast<Map<String, dynamic>>();
 
-      await audioDB.setMeta('total_packs', manifest.length.toString());
+      await _audioDB.setMeta('total_packs', manifest.length.toString());
 
       const maxRounds = 10;
       const roundDelays = [0, 10, 30, 60, 120]; // seconds
       const concurrency = 6;
       var totalFilesExtracted = 0;
       var totalBytesDownloaded = 0;
+      var packsCompleted = 0;
 
       for (var round = 0; round < maxRounds; round++) {
-        if (cancelled()) return;
+        if (stale()) return;
 
-        final completed = await audioDB.getCompletedPacks();
+        final completed = await _audioDB.getCompletedPacks();
+        packsCompleted = completed.length;
         final remaining = manifest
             .where((p) => !completed.contains(p['name']))
             .toList();
@@ -301,62 +333,65 @@ class AudioService {
             'waiting ${delay}s before retry',
           );
           await Future.delayed(Duration(seconds: delay));
-          if (cancelled()) return;
+          if (stale()) return;
         }
 
-        var packsCompleted = completed.length;
         var failedThisRound = 0;
 
-        for (var i = 0; i < remaining.length; i += concurrency) {
-          if (cancelled()) return;
-          final end = (i + concurrency).clamp(0, remaining.length);
-          final batch = remaining.sublist(i, end);
-
-          final futures = batch.map((pack) async {
+        await _runPool(
+          items: remaining,
+          concurrency: concurrency,
+          stale: stale,
+          process: (pack) async {
+            if (stale()) return;
             final packName = pack['name'] as String;
             try {
               final res = await httpGetWithRetry(
-                client,
+                c,
                 Uri.parse('$packsUrl/$packName'),
                 maxAttempts: 3,
                 timeout: const Duration(seconds: 120),
                 baseDelay: const Duration(seconds: 2),
               );
+              if (stale()) return;
               if (res.statusCode != 200) {
                 debugPrint(
                   'AudioService: pack $packName failed ${res.statusCode}',
                 );
-                return (0, 0, false);
+                failedThisRound++;
+              } else {
+                final extracted = await _extractTar(res.bodyBytes);
+                if (stale()) return;
+                if (extracted == 0) {
+                  debugPrint(
+                    'AudioService: pack $packName extracted 0 files, skipping',
+                  );
+                  failedThisRound++;
+                } else {
+                  await _audioDB.markPackComplete(packName);
+                  packsCompleted++;
+                  totalFilesExtracted += extracted;
+                  totalBytesDownloaded += res.bodyBytes.length;
+                }
               }
-              final extracted = await _extractTar(res.bodyBytes);
-              await audioDB.markPackComplete(packName);
-              return (extracted, res.bodyBytes.length, true);
             } catch (e) {
               debugPrint('AudioService: pack $packName error: $e');
-              return (0, 0, false);
-            }
-          });
-
-          final results = await Future.wait(futures);
-          for (final (files, bytes, success) in results) {
-            if (success) {
-              packsCompleted++;
-            } else {
               failedThisRound++;
             }
-            totalFilesExtracted += files;
-            totalBytesDownloaded += bytes;
-          }
-          onProgress(
-            packsCompleted,
-            manifest.length,
-            totalFilesExtracted,
-            totalBytesDownloaded,
-            round,
-            failedThisRound,
-          );
-        }
+            if (!stale()) {
+              onProgress(
+                packsCompleted,
+                manifest.length,
+                totalFilesExtracted,
+                totalBytesDownloaded,
+                round,
+                failedThisRound,
+              );
+            }
+          },
+        );
 
+        if (stale()) return;
         if (failedThisRound == 0) return; // all succeeded this round
         debugPrint(
           'AudioService: round $round done, $failedThisRound packs failed',
@@ -364,7 +399,7 @@ class AudioService {
       }
 
       // Still incomplete after all rounds
-      final finalCompleted = await audioDB.getCompletedPacks();
+      final finalCompleted = await _audioDB.getCompletedPacks();
       final remaining = manifest.length - finalCompleted.length;
       if (remaining > 0) {
         throw Exception(
@@ -372,8 +407,29 @@ class AudioService {
         );
       }
     } finally {
-      client.close();
+      if (ownClient) c.close();
     }
+  }
+
+  /// Sliding-window concurrency pool. Keeps [concurrency] tasks active at all
+  /// times — as soon as one finishes, the next starts. No idle slots.
+  static Future<void> _runPool<T>({
+    required List<T> items,
+    required Future<void> Function(T) process,
+    required int concurrency,
+    required bool Function() stale,
+  }) async {
+    final running = <Future<void>>{};
+    for (final item in items) {
+      if (stale()) return;
+      final f = process(item);
+      running.add(f);
+      f.whenComplete(() => running.remove(f));
+      if (running.length >= concurrency) {
+        await Future.any(running);
+      }
+    }
+    if (running.isNotEmpty) await Future.wait(running);
   }
 
   /// Parse tar archive and insert all files into audio.db in a single transaction.
@@ -416,23 +472,26 @@ class AudioService {
       pos += (fileSize + 511) & ~511;
     }
 
-    await audioDB.putBatch(files);
+    await _audioDB.putBatch(files);
     return files.length;
   }
 
   /// Cached file count from audio.db.
-  Future<int> getCachedFileCount() => audioDB.fileCount();
+  Future<int> getCachedFileCount() => _audioDB.fileCount();
 
   /// Whether all audio packs have been downloaded.
-  Future<bool> isDownloadComplete() => audioDB.isDownloadComplete();
+  Future<bool> isDownloadComplete() => _audioDB.isDownloadComplete();
 
   /// Clear all cached audio.
-  Future<void> clearCache() => audioDB.clear();
+  Future<void> clearCache() async {
+    _generation++;
+    await _audioDB.clear();
+  }
 
   Future<void> stop() async => await _player.stop();
 
   void dispose() {
     _player.dispose();
-    audioDB.close();
+    _audioDB.close();
   }
 }
