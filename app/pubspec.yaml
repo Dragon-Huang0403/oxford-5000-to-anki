@@ -1,7 +1,7 @@
 name: deckionary
 description: "Deckionary — Dictionary with FSRS Spaced Repetition"
 publish_to: 'none'
-version: 0.2.0+3
+version: 0.2.1+4
 
 environment:
   sdk: ^3.11.4
