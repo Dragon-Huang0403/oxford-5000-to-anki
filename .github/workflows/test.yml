@@ -37,6 +37,10 @@ jobs:
         working-directory: app
         run: echo "${{ secrets.FIREBASE_OPTIONS_DART }}" | base64 -d > lib/firebase_options.dart
 
+      - name: Download dictionary database
+        working-directory: app
+        run: curl -fSL -o assets/oald10.db "${{ secrets.R2_BASE_URL }}/db/oald10.db"
+
       - name: Run all tests
         working-directory: app
         run: flutter test
