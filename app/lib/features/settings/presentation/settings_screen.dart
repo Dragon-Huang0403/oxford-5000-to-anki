@@ -33,12 +33,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       // Auto-sync on first sign-in: pull remote first, then push local
       final syncService = ref.read(syncServiceProvider);
       if (syncService != null) {
+        await syncService.syncSearchHistory();
+        await syncService.syncReviewData();
+        await syncService.syncVocabularyData();
         final settingsPulled = await syncService.pullSettings();
         await syncService.pushDirtySettings();
-        syncService.syncSearchHistory();
-        syncService.syncReviewData();
-        syncService.syncVocabularyData();
-        syncService.cleanupSoftDeletes();
+        await syncService.cleanupSoftDeletes();
+
+        ref.invalidate(reviewSummaryProvider);
         if (settingsPulled > 0) {
           ref.invalidate(themeModeProvider);
           ref.invalidate(reviewFilterProvider);
