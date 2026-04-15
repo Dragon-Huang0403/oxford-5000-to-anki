@@ -88,6 +88,12 @@ class DictionaryDatabase {
 
   DictionaryDatabase._(this._db);
 
+  /// Open a dictionary database from a file path (for tests).
+  static DictionaryDatabase forTesting(String dbPath) {
+    final db = Database(NativeDatabase(File(dbPath)));
+    return DictionaryDatabase._(db);
+  }
+
   /// Must match SCHEMA_VERSION in db/schema.py.
   /// Bump this when the bundled oald10.db is rebuilt with a new schema.
   static const _bundledSchemaVersion = 5;
