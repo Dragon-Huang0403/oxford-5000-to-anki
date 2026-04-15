@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_update/in_app_update.dart';
 
@@ -18,16 +19,27 @@ Future<AppUpdateInfo?> checkPlayStoreUpdate() async {
   }
 }
 
-/// Start a flexible update download, then complete the install when downloaded.
-/// Returns true if the update was started successfully.
+/// Start a flexible update download and auto-install when complete.
+/// Returns true if the download was started successfully.
 Future<bool> startFlexibleUpdate() async {
   try {
     final result = await InAppUpdate.startFlexibleUpdate();
-    if (result == AppUpdateResult.success) {
-      await InAppUpdate.completeFlexibleUpdate();
-      return true;
-    }
-    return false;
+    if (result != AppUpdateResult.success) return false;
+
+    late StreamSubscription<InstallStatus> sub;
+    sub = InAppUpdate.installUpdateListener.listen(
+      (status) {
+        if (status == InstallStatus.downloaded) {
+          sub.cancel();
+          InAppUpdate.completeFlexibleUpdate();
+        }
+      },
+      onError: (e) {
+        sub.cancel();
+        debugPrint('Update listener error: $e');
+      },
+    );
+    return true;
   } catch (e) {
     debugPrint('Flexible update failed: $e');
     return false;

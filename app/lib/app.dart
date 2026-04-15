@@ -13,6 +13,7 @@ import 'core/database/database_provider.dart';
 import 'core/sync/sync_provider.dart';
 import 'core/update/update_provider.dart';
 import 'core/update/update_service.dart';
+import 'core/update/play_store_update_service.dart';
 import 'features/dictionary/presentation/dictionary_screen.dart';
 import 'features/review/presentation/review_home_screen.dart';
 import 'features/review/providers/review_providers.dart';
@@ -91,15 +92,37 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
 
   void _checkForUpdate() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final info = await ref.read(updateInfoProvider.future);
-      if (info == null || !mounted) return;
-
-      final dao = ref.read(settingsDaoProvider);
-      final skipped = await dao.getSkippedVersion();
-      if (skipped == info.latestVersion) return;
-
-      if (mounted) _showUpdateDialog(info);
+      if (Platform.isAndroid) {
+        await _checkPlayStoreUpdate();
+      } else {
+        await _checkGitHubUpdate();
+      }
     });
+  }
+
+  Future<void> _checkGitHubUpdate() async {
+    final info = await ref.read(updateInfoProvider.future);
+    if (info == null || !mounted) return;
+
+    final dao = ref.read(settingsDaoProvider);
+    final skipped = await dao.getSkippedVersion();
+    if (skipped == info.latestVersion) return;
+
+    if (mounted) _showUpdateDialog(info);
+  }
+
+  Future<void> _checkPlayStoreUpdate() async {
+    final updateInfo = await checkPlayStoreUpdate();
+    if (updateInfo == null || !mounted) return;
+
+    final versionCode =
+        updateInfo.availableVersionCode?.toString() ?? 'play_update';
+
+    final dao = ref.read(settingsDaoProvider);
+    final skipped = await dao.getSkippedVersion();
+    if (skipped == versionCode) return;
+
+    if (mounted) _showPlayStoreUpdateDialog(versionCode);
   }
 
   void _showUpdateDialog(UpdateInfo info) {
@@ -151,6 +174,37 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
                 mode: LaunchMode.externalApplication,
               );
               Navigator.pop(ctx);
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPlayStoreUpdateDialog(String versionCode) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Update Available'),
+        content: const Text(
+          'A new version is available on Google Play. '
+          'Would you like to update now?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ref
+                  .read(settingsDaoProvider)
+                  .setSkippedVersion(versionCode);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Skip this version'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              startFlexibleUpdate();
             },
             child: const Text('Update'),
           ),
