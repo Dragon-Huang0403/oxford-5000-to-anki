@@ -168,5 +168,4 @@ extension DictionaryFilter on DictionaryDatabase {
         .get();
     return results.map((r) => r.data).toList();
   }
-
 }

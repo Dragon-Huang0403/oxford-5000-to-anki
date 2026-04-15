@@ -178,7 +178,9 @@ void main() {
     });
 
     test('pack with valid tar content is marked complete', () async {
-      final tar = buildTar({'hello.mp3': Uint8List.fromList([1, 2, 3])});
+      final tar = buildTar({
+        'hello.mp3': Uint8List.fromList([1, 2, 3]),
+      });
       final client = createFakeClient(
         packNames: ['pack_00.tar'],
         packContents: {'pack_00.tar': tar},
@@ -199,7 +201,9 @@ void main() {
       await db.init();
       final service = AudioService(db: db);
 
-      final tar = buildTar({'audio.mp3': Uint8List.fromList([1, 2, 3])});
+      final tar = buildTar({
+        'audio.mp3': Uint8List.fromList([1, 2, 3]),
+      });
       final gate = Completer<void>();
       final client = createFakeClient(
         packNames: ['pack_00.tar', 'pack_01.tar'],
@@ -238,7 +242,9 @@ void main() {
       await db.init();
       final service = AudioService(db: db);
 
-      final tar = buildTar({'a.mp3': Uint8List.fromList([1])});
+      final tar = buildTar({
+        'a.mp3': Uint8List.fromList([1]),
+      });
       final gate = Completer<void>();
       final client = createFakeClient(
         packNames: ['pack_00.tar'],
@@ -265,7 +271,9 @@ void main() {
       await db.init();
       final service = AudioService(db: db);
 
-      final tar = buildTar({'a.mp3': Uint8List.fromList([1])});
+      final tar = buildTar({
+        'a.mp3': Uint8List.fromList([1]),
+      });
 
       // First download: cancelled mid-flight
       final gate = Completer<void>();
@@ -302,7 +310,9 @@ void main() {
       await db.init();
       final service = AudioService(db: db);
 
-      final tar = buildTar({'x.mp3': Uint8List.fromList([1])});
+      final tar = buildTar({
+        'x.mp3': Uint8List.fromList([1]),
+      });
       final slowGate = Completer<void>();
       final completionOrder = <String>[];
 

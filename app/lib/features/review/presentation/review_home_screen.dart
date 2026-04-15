@@ -249,11 +249,11 @@ class ReviewHomeScreen extends ConsumerWidget {
                     color: cs.onSurfaceVariant,
                     onTap: summary.totalCards > 0
                         ? () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const LearnedWordsScreen(),
-                              ),
-                            )
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LearnedWordsScreen(),
+                            ),
+                          )
                         : null,
                   ),
                 ],

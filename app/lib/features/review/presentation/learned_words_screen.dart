@@ -29,12 +29,14 @@ class _LearnedWordsScreenState extends ConsumerState<LearnedWordsScreen> {
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             tabs: _tabs
-                .map((t) => Tab(
-                      child: Text(
-                        t.label,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ))
+                .map(
+                  (t) => Tab(
+                    child: Text(
+                      t.label,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                )
                 .toList(),
           ),
         ),
@@ -213,7 +215,11 @@ class _StateBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
       ),
     );
   }

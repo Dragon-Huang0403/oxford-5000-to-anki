@@ -168,7 +168,11 @@ class ReviewDao {
           'SELECT * FROM review_cards WHERE $where '
           'ORDER BY last_review IS NULL, last_review DESC '
           'LIMIT ? OFFSET ?',
-          variables: [...vars, Variable.withInt(limit), Variable.withInt(offset)],
+          variables: [
+            ...vars,
+            Variable.withInt(limit),
+            Variable.withInt(offset),
+          ],
           readsFrom: {_db.reviewCards},
         )
         .get();
