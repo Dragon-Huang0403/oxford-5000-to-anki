@@ -222,9 +222,12 @@ class AudioDownloadManager {
     debugPrint('[AudioDL] cancel requested, generation=$_generation');
     _extractionQueue.clear();
     _pendingTasks = 0;
-    _dispatcher.unregisterCallbacks(_group);
+    // Register a no-op callback so the native side doesn't warn about
+    // missing listeners while it fires cancellation status updates.
+    _dispatcher.registerStatusCallback(_group, (_) {});
     _completeAllDone();
     await _dispatcher.reset(_group);
+    _dispatcher.unregisterCallbacks(_group);
     // Wait for any in-progress extraction to finish — the isolate can't be
     // interrupted, but the stale check prevents DB writes after it returns.
     if (_extracting) await _extractionDone?.future;
