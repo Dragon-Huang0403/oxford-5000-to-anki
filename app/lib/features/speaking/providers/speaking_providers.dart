@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -84,34 +85,58 @@ final curatedTopicsProvider =
 final speakingHistoryProvider = FutureProvider<List<SpeakingHistoryItem>>((
   ref,
 ) async {
-  final service = ref.read(speakingServiceProvider);
+  final service = ref.watch(speakingServiceProvider);
   if (service == null) return [];
   final rows = await service.getHistory();
-  return rows
-      .map(
-        (r) => SpeakingHistoryItem(
-          id: r.id,
-          topic: r.topic,
-          isCustomTopic: r.isCustomTopic,
-          createdAt: DateTime.parse(r.createdAt),
-        ),
-      )
-      .toList();
+  return rows.map((r) {
+    var count = 0;
+    try {
+      final list = jsonDecode(r.correctionsJson);
+      if (list is List) count = list.length;
+    } catch (_) {}
+    return SpeakingHistoryItem(
+      id: r.id,
+      topic: r.topic,
+      isCustomTopic: r.isCustomTopic,
+      correctionsCount: count,
+      createdAt: DateTime.parse(r.createdAt),
+    );
+  }).toList();
 });
 
 class SpeakingHistoryItem {
   final String id;
   final String topic;
   final bool isCustomTopic;
+  final int correctionsCount;
   final DateTime createdAt;
 
   const SpeakingHistoryItem({
     required this.id,
     required this.topic,
     required this.isCustomTopic,
+    required this.correctionsCount,
     required this.createdAt,
   });
 }
+
+/// Loads a full SpeakingResult from DB by ID (for history detail screen).
+final speakingResultByIdProvider =
+    FutureProvider.family<SpeakingResult?, String>((ref, id) async {
+  final service = ref.watch(speakingServiceProvider);
+  if (service == null) return null;
+  final row = await service.getResultById(id);
+  if (row == null) return null;
+  final corrections = (jsonDecode(row.correctionsJson) as List)
+      .map((e) => SpeakingCorrection.fromJson(e as Map<String, dynamic>))
+      .toList();
+  return SpeakingResult(
+    transcript: row.transcript,
+    corrections: corrections,
+    naturalVersion: row.naturalVersion,
+    overallNote: row.overallNote,
+  );
+});
 
 // ── Analyze action ───────────────────────────────────────────────────────────
 

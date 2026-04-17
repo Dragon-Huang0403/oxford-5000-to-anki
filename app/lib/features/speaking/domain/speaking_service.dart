@@ -115,6 +115,14 @@ class SpeakingService {
         .get();
   }
 
+  /// Fetch a single speaking result by ID (for history detail view).
+  Future<SpeakingResultRow?> getResultById(String id) async {
+    final rows = await (_db.select(_db.speakingResults)
+          ..where((t) => t.id.equals(id) & t.deletedAt.isNull()))
+        .get();
+    return rows.isEmpty ? null : rows.first;
+  }
+
   /// Soft-delete a speaking result.
   Future<void> deleteResult(String id) async {
     final now = DateTime.now().toUtc().toIso8601String();
