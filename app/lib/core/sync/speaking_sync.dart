@@ -45,6 +45,8 @@ class SpeakingSync {
           'corrections_json': data['corrections_json'],
           'natural_version': data['natural_version'],
           'overall_note': data['overall_note'],
+          'session_id': data['session_id'],
+          'attempt_number': data['attempt_number'],
           'created_at': data['created_at'],
           'updated_at': data['updated_at'],
           'deleted_at': data['deleted_at'],
@@ -97,8 +99,9 @@ class SpeakingSync {
       await _db.customInsert(
         '''INSERT INTO speaking_results
            (id, topic, is_custom_topic, transcript, corrections_json,
-            natural_version, overall_note, created_at, updated_at, synced)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)''',
+            natural_version, overall_note, session_id, attempt_number,
+            created_at, updated_at, synced)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)''',
         variables: [
           Variable.withString(id),
           Variable.withString(row['topic'] as String),
@@ -108,6 +111,12 @@ class SpeakingSync {
           Variable.withString(row['natural_version'] as String),
           row['overall_note'] != null
               ? Variable.withString(row['overall_note'] as String)
+              : const Variable(null),
+          row['session_id'] != null
+              ? Variable.withString(row['session_id'] as String)
+              : const Variable(null),
+          row['attempt_number'] != null
+              ? Variable.withInt(row['attempt_number'] as int)
               : const Variable(null),
           Variable.withString(row['created_at'] as String),
           Variable.withString(remoteUpdatedAt),
@@ -139,6 +148,7 @@ class SpeakingSync {
           '''UPDATE speaking_results SET
              topic = ?, is_custom_topic = ?, transcript = ?,
              corrections_json = ?, natural_version = ?, overall_note = ?,
+             session_id = ?, attempt_number = ?,
              updated_at = ?, synced = 1
              WHERE id = ?''',
           variables: [
@@ -149,6 +159,12 @@ class SpeakingSync {
             Variable.withString(row['natural_version'] as String),
             row['overall_note'] != null
                 ? Variable.withString(row['overall_note'] as String)
+                : const Variable(null),
+            row['session_id'] != null
+                ? Variable.withString(row['session_id'] as String)
+                : const Variable(null),
+            row['attempt_number'] != null
+                ? Variable.withInt(row['attempt_number'] as int)
                 : const Variable(null),
             Variable.withString(remoteUpdatedAt),
             Variable.withString(id),
