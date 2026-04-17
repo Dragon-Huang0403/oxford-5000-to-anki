@@ -6,7 +6,9 @@ enum SpeakingTopicCategory {
   technology,
   culture,
   education,
-  health;
+  health,
+  reflection,
+  engineering;
 
   String get displayName {
     switch (this) {
@@ -26,6 +28,10 @@ enum SpeakingTopicCategory {
         return 'Education & Learning';
       case health:
         return 'Health & Wellbeing';
+      case reflection:
+        return 'Interview & Reflection';
+      case engineering:
+        return 'Software Engineering';
     }
   }
 }
