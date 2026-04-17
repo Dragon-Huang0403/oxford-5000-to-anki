@@ -14,8 +14,8 @@ class SpeakingService {
   final SupabaseClient _supabase;
 
   SpeakingService({required UserDatabase db, required SupabaseClient supabase})
-    : _db = db,
-      _supabase = supabase;
+      : _db = db,
+        _supabase = supabase;
 
   /// Analyze a voice recording. Sends audio to the speaking-analyze edge
   /// function and returns structured corrections.
@@ -23,8 +23,7 @@ class SpeakingService {
     Uint8List audioBytes,
     String topic,
   ) async {
-    final token =
-        _supabase.auth.currentSession?.accessToken ??
+    final token = _supabase.auth.currentSession?.accessToken ??
         (isDevBuild ? supabaseAnonKey : null);
     if (token == null || token.isEmpty) {
       throw Exception('Not authenticated — please sign in');
@@ -52,10 +51,9 @@ class SpeakingService {
     return SpeakingResult.fromJson(jsonDecode(body) as Map<String, dynamic>);
   }
 
-  /// Analyze typed text. Sends text to the speaking-analyze edge function.
+  /// Analyze typed text.
   Future<SpeakingResult> analyzeText(String text, String topic) async {
-    final token =
-        _supabase.auth.currentSession?.accessToken ??
+    final token = _supabase.auth.currentSession?.accessToken ??
         (isDevBuild ? supabaseAnonKey : null);
     if (token == null || token.isEmpty) {
       throw Exception('Not authenticated — please sign in');
@@ -82,32 +80,37 @@ class SpeakingService {
     );
   }
 
-  /// Persist a speaking result to local DB for sync.
-  Future<void> saveResult({
+  /// Persist one attempt to the DB. Returns the newly created row id.
+  Future<String> saveAttempt({
+    required String sessionId,
     required String topic,
     required bool isCustomTopic,
+    required int attemptNumber,
     required SpeakingResult result,
   }) async {
     final now = DateTime.now().toUtc().toIso8601String();
-    await _db
-        .into(_db.speakingResults)
-        .insert(
+    final id = const Uuid().v4();
+    await _db.into(_db.speakingResults).insert(
           SpeakingResultsCompanion.insert(
-            id: const Uuid().v4(),
+            id: id,
             topic: topic,
             isCustomTopic: Value(isCustomTopic),
             transcript: result.transcript,
             correctionsJson: jsonEncode(result.toJson()['corrections']),
             naturalVersion: result.naturalVersion,
             overallNote: Value(result.overallNote),
+            sessionId: Value(sessionId),
+            attemptNumber: Value(attemptNumber),
             createdAt: Value(now),
             updatedAt: Value(now),
           ),
         );
+    return id;
   }
 
-  /// Fetch past speaking results (most recent first, excludes soft-deleted).
-  Future<List<SpeakingResultRow>> getHistory({int limit = 50}) async {
+  /// Most recent rows, excluding soft-deleted. Callers are responsible for
+  /// grouping by session_id.
+  Future<List<SpeakingResultRow>> getHistory({int limit = 200}) async {
     return (_db.select(_db.speakingResults)
           ..where((t) => t.deletedAt.isNull())
           ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
@@ -115,7 +118,20 @@ class SpeakingService {
         .get();
   }
 
-  /// Fetch a single speaking result by ID (for history detail view).
+  /// All attempts for one session, ordered by attempt_number ascending.
+  Future<List<SpeakingResultRow>> getAttemptsBySessionId(
+    String sessionId,
+  ) async {
+    return (_db.select(_db.speakingResults)
+          ..where(
+            (t) => t.sessionId.equals(sessionId) & t.deletedAt.isNull(),
+          )
+          ..orderBy([(t) => OrderingTerm.asc(t.attemptNumber)]))
+        .get();
+  }
+
+  /// Backward-compatible lookup by row id (history detail loaded before
+  /// grouping refactor). Prefer getAttemptsBySessionId.
   Future<SpeakingResultRow?> getResultById(String id) async {
     final rows = await (_db.select(_db.speakingResults)
           ..where((t) => t.id.equals(id) & t.deletedAt.isNull()))
@@ -123,12 +139,12 @@ class SpeakingService {
     return rows.isEmpty ? null : rows.first;
   }
 
-  /// Soft-delete a speaking result.
-  Future<void> deleteResult(String id) async {
+  /// Soft-delete every attempt in a session.
+  Future<void> deleteSession(String sessionId) async {
     final now = DateTime.now().toUtc().toIso8601String();
-    await (_db.update(
-      _db.speakingResults,
-    )..where((t) => t.id.equals(id))).write(
+    await (_db.update(_db.speakingResults)
+          ..where((t) => t.sessionId.equals(sessionId)))
+        .write(
       SpeakingResultsCompanion(
         deletedAt: Value(now),
         updatedAt: Value(now),
