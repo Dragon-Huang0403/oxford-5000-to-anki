@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
@@ -9,6 +9,13 @@ function corsHeaders(): Record<string, string> {
       "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
   };
+}
+
+function unauthorized(message: string): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 401,
+    headers: { ...corsHeaders(), "Content-Type": "application/json" },
+  });
 }
 
 async function verifyAuth(
@@ -22,33 +29,29 @@ async function verifyAuth(
     return { userId: "dev-local-user" };
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  if (!authHeader) return unauthorized("Missing authorization header");
 
-  if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Missing authorization header" }), {
-      status: 401,
-      headers: { ...corsHeaders(), "Content-Type": "application/json" },
-    });
-  }
+  // Verify token by calling GoTrue's /auth/v1/user directly. This avoids
+  // client-side JWT decoding that breaks when the project's signing key is
+  // rotated to an asymmetric algorithm (ES256/RS256) and the SDK bundled on
+  // esm.sh hasn't been updated to support it. The server-side endpoint
+  // validates any algorithm the project is configured for.
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
+  const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: { Authorization: authHeader, apikey: anonKey },
   });
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user) {
-    return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
-      status: 401,
-      headers: { ...corsHeaders(), "Content-Type": "application/json" },
-    });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.warn("auth/v1/user rejected token", res.status, body);
+    return unauthorized(`Invalid or expired token (${res.status})`);
   }
 
-  return { userId: user.id };
+  const user = await res.json();
+  if (!user?.id) return unauthorized("Invalid user payload");
+  return { userId: user.id as string };
 }
 
 function getServiceRoleClient() {

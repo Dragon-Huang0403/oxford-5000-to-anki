@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/config.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/logging/logging_service.dart';
 import 'speaking_result.dart';
 
 /// Orchestrates speaking analysis: sends audio/text to the edge function,
@@ -46,6 +47,10 @@ class SpeakingService {
     final body = await streamed.stream.bytesToString();
 
     if (streamed.statusCode != 200) {
+      globalTalker.error(
+        '[Speaking] analyze (audio) failed: '
+        '${streamed.statusCode} ${_truncate(body)}',
+      );
       throw Exception('Analysis failed (${streamed.statusCode}): $body');
     }
 
@@ -72,6 +77,10 @@ class SpeakingService {
     );
 
     if (response.statusCode != 200) {
+      globalTalker.error(
+        '[Speaking] analyze (text) failed: '
+        '${response.statusCode} ${_truncate(response.body)}',
+      );
       throw Exception(
         'Analysis failed (${response.statusCode}): ${response.body}',
       );
@@ -81,6 +90,9 @@ class SpeakingService {
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
+
+  static String _truncate(String s, [int max = 500]) =>
+      s.length <= max ? s : '${s.substring(0, max)}… (${s.length} chars)';
 
   /// Persist one attempt to the DB. Returns the newly created row id.
   Future<String> saveAttempt({

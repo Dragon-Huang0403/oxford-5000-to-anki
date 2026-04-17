@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../../../core/logging/logging_service.dart';
 import '../providers/speaking_providers.dart';
 import '../providers/speaking_session_notifier.dart';
 import 'speaking_result_screen.dart';
@@ -83,8 +84,8 @@ class _SpeakingRecordScreenState extends ConsumerState<SpeakingRecordScreen> {
           .read(speakingSessionNotifierProvider.notifier)
           .addAttemptFromAudio(audioBytes);
       _navigateOnSuccess();
-    } catch (e) {
-      _handleError(e);
+    } catch (e, st) {
+      _handleError(e, st);
     }
   }
 
@@ -98,8 +99,8 @@ class _SpeakingRecordScreenState extends ConsumerState<SpeakingRecordScreen> {
           .read(speakingSessionNotifierProvider.notifier)
           .addAttemptFromText(text);
       _navigateOnSuccess();
-    } catch (e) {
-      _handleError(e);
+    } catch (e, st) {
+      _handleError(e, st);
     }
   }
 
@@ -116,7 +117,8 @@ class _SpeakingRecordScreenState extends ConsumerState<SpeakingRecordScreen> {
     }
   }
 
-  void _handleError(Object error) {
+  void _handleError(Object error, StackTrace stackTrace) {
+    globalTalker.handle(error, stackTrace, '[Speaking] analysis failed');
     if (!mounted) return;
     ref.read(recordingStatusProvider.notifier).set(RecordingStatus.idle);
     ScaffoldMessenger.of(
