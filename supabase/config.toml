@@ -368,6 +368,16 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# Per-function overrides. `verify_jwt = false` disables the Edge Runtime's
+# built-in JWT gate (which currently only supports HS256) so the function can
+# instead verify the token itself by calling GoTrue's /auth/v1/user — that
+# path supports whatever algorithm the project's signing key uses (ES256).
+[functions.speaking-analyze]
+verify_jwt = false
+
+[functions.speaking-tts]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
