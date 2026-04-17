@@ -14,6 +14,14 @@ function corsHeaders(): Record<string, string> {
 async function verifyAuth(
   authHeader: string | null
 ): Promise<{ userId: string } | Response> {
+  // Skip auth in local dev (set DEV_MODE=true in .env.local)
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const isLocal = supabaseUrl.includes("127.0.0.1") || supabaseUrl.includes("localhost");
+  if (Deno.env.get("DEV_MODE") === "true" && isLocal) {
+    console.warn("[DEV] Auth bypassed — DEV_MODE is enabled");
+    return { userId: "dev-local-user" };
+  }
+
   if (!authHeader) {
     return new Response(JSON.stringify({ error: "Missing authorization header" }), {
       status: 401,
@@ -21,7 +29,6 @@ async function verifyAuth(
     });
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: authHeader } },

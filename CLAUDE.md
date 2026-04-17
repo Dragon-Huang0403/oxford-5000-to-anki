@@ -27,6 +27,14 @@ Python tools (from repo root):
 python build_db.py                  # Build oald10.db from macOS dictionary bundle
 ```
 
+Supabase Edge Functions (from repo root):
+```bash
+supabase start                                    # Start local Supabase (applies migrations)
+cp supabase/.env.example supabase/.env.local      # Create env file (first time only)
+# Edit supabase/.env.local to add your OPENAI_API_KEY
+supabase functions serve --env-file supabase/.env.local  # Serve edge functions locally
+```
+
 Pre-commit hook auto-formats and lints. Install with: `git config core.hooksPath .githooks`
 
 ### Testing

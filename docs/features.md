@@ -56,6 +56,27 @@ On-demand playback with optional bulk offline download.
 
 ---
 
+## Speaking Coach
+
+AI-powered pronunciation practice using Supabase Edge Functions and OpenAI.
+
+**Flow**: user records themselves saying a word or sentence -> audio is sent to `speaking-analyze` edge function -> OpenAI Whisper transcribes and GPT scores pronunciation -> feedback displayed in app.
+
+**Edge Functions** (`supabase/functions/`):
+- `speaking-analyze` — receives audio, runs Whisper transcription + GPT pronunciation analysis
+- `speaking-tts` — generates reference audio via OpenAI TTS for comparison
+
+**Local development**:
+```bash
+supabase start
+cp supabase/.env.example supabase/.env.local   # first time only; add OPENAI_API_KEY
+supabase functions serve --env-file supabase/.env.local
+```
+
+**Deployment**: edge functions auto-deploy via CI on push to main when `supabase/functions/` changes. See `.github/workflows/deploy-functions.yml`.
+
+---
+
 ## macOS Quick Search Overlay
 
 Raycast-style global hotkey search window (default: Cmd+Shift+D).

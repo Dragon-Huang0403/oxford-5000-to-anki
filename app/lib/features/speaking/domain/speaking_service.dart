@@ -23,8 +23,12 @@ class SpeakingService {
     Uint8List audioBytes,
     String topic,
   ) async {
-    final token = _supabase.auth.currentSession?.accessToken;
-    if (token == null) throw Exception('Not authenticated');
+    final token =
+        _supabase.auth.currentSession?.accessToken ??
+        (isDevBuild ? supabaseAnonKey : null);
+    if (token == null || token.isEmpty) {
+      throw Exception('Not authenticated — please sign in');
+    }
 
     final uri = Uri.parse('$supabaseUrl/functions/v1/speaking-analyze');
     final request = http.MultipartRequest('POST', uri)
@@ -34,7 +38,7 @@ class SpeakingService {
         http.MultipartFile.fromBytes(
           'audio',
           audioBytes,
-          filename: 'recording.m4a',
+          filename: 'recording.wav',
         ),
       );
 
@@ -50,8 +54,12 @@ class SpeakingService {
 
   /// Analyze typed text. Sends text to the speaking-analyze edge function.
   Future<SpeakingResult> analyzeText(String text, String topic) async {
-    final token = _supabase.auth.currentSession?.accessToken;
-    if (token == null) throw Exception('Not authenticated');
+    final token =
+        _supabase.auth.currentSession?.accessToken ??
+        (isDevBuild ? supabaseAnonKey : null);
+    if (token == null || token.isEmpty) {
+      throw Exception('Not authenticated — please sign in');
+    }
 
     final uri = Uri.parse('$supabaseUrl/functions/v1/speaking-analyze');
     final response = await http.post(

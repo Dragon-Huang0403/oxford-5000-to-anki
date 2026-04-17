@@ -54,10 +54,36 @@ class _SpeakingResultScreenState extends ConsumerState<SpeakingResultScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // ── Your transcript ───────────────────────────────────────
+            Card(
+              margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your transcript',
+                      style: textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      result.transcript,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
             // ── Overall note ──────────────────────────────────────────
             if (result.overallNote != null) ...[
               Card(
-                margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 color: cs.primaryContainer,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -140,32 +166,6 @@ class _SpeakingResultScreenState extends ConsumerState<SpeakingResultScreen> {
               )
             else
               ...corrections.map((c) => CorrectionCard(correction: c)),
-
-            // ── Your transcript ───────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: ExpansionTile(
-                title: Text(
-                  'Your transcript',
-                  style: textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                tilePadding: EdgeInsets.zero,
-                childrenPadding: const EdgeInsets.only(bottom: 8),
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      result.transcript,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
 
             // ── Action buttons ────────────────────────────────────────
             const SizedBox(height: 24),

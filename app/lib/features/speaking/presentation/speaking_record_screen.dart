@@ -53,10 +53,10 @@ class _SpeakingRecordScreenState extends ConsumerState<SpeakingRecordScreen> {
       if (!await _recorder.hasPermission()) return;
 
       final dir = await getApplicationDocumentsDirectory();
-      final tempPath = '${dir.path}/_speaking_recording.m4a';
+      final tempPath = '${dir.path}/_speaking_recording.wav';
 
       await _recorder.start(
-        const RecordConfig(encoder: AudioEncoder.aacLc),
+        const RecordConfig(encoder: AudioEncoder.wav),
         path: tempPath,
       );
       _elapsedSeconds = 0;
@@ -156,26 +156,32 @@ class _SpeakingRecordScreenState extends ConsumerState<SpeakingRecordScreen> {
         child: Column(
           children: [
             // Input mode selector
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: SegmentedButton<InputMode>(
-                segments: const [
-                  ButtonSegment(
-                    value: InputMode.speaking,
-                    label: Text('Speak'),
-                    icon: Icon(Icons.mic),
-                  ),
-                  ButtonSegment(
-                    value: InputMode.typing,
-                    label: Text('Type'),
-                    icon: Icon(Icons.keyboard),
-                  ),
-                ],
-                selected: {inputMode},
-                onSelectionChanged: recordingStatus != RecordingStatus.idle
-                    ? null
-                    : (modes) =>
-                          ref.read(inputModeProvider.notifier).set(modes.first),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: SegmentedButton<InputMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: InputMode.speaking,
+                      label: Text('Speak'),
+                      icon: Icon(Icons.mic),
+                    ),
+                    ButtonSegment(
+                      value: InputMode.typing,
+                      label: Text('Type'),
+                      icon: Icon(Icons.keyboard),
+                    ),
+                  ],
+                  selected: {inputMode},
+                  onSelectionChanged: recordingStatus != RecordingStatus.idle
+                      ? null
+                      : (modes) => ref
+                            .read(inputModeProvider.notifier)
+                            .set(modes.first),
+                ),
               ),
             ),
 
@@ -184,7 +190,7 @@ class _SpeakingRecordScreenState extends ConsumerState<SpeakingRecordScreen> {
               child: recordingStatus == RecordingStatus.processing
                   ? _buildProcessing()
                   : inputMode == InputMode.speaking
-                  ? _buildSpeakMode(cs, recordingStatus)
+                  ? Center(child: _buildSpeakMode(cs, recordingStatus))
                   : _buildTypeMode(cs),
             ),
           ],
@@ -210,7 +216,7 @@ class _SpeakingRecordScreenState extends ConsumerState<SpeakingRecordScreen> {
     final isRecording = status == RecordingStatus.recording;
 
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         if (isRecording) ...[
           Text(

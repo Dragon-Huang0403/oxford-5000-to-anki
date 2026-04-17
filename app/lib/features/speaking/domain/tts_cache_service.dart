@@ -56,8 +56,12 @@ class TtsCacheService {
     }
 
     // Fetch from edge function
-    final token = _supabase.auth.currentSession?.accessToken;
-    if (token == null) throw Exception('Not authenticated');
+    final token =
+        _supabase.auth.currentSession?.accessToken ??
+        (isDevBuild ? supabaseAnonKey : null);
+    if (token == null || token.isEmpty) {
+      throw Exception('Not authenticated — please sign in');
+    }
 
     final uri = Uri.parse('$supabaseUrl/functions/v1/speaking-tts');
     final response = await http.post(
@@ -95,6 +99,8 @@ class TtsCacheService {
       await tmpFile.writeAsBytes(audioBytes);
       await _player.setFilePath(tmpFile.path);
       await _player.play();
+      // Clean up temp file after playback finishes
+      tmpFile.delete().ignore();
     } catch (e, st) {
       globalTalker.error('[TTS] playback error', e, st);
     }
