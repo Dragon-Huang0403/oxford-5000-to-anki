@@ -127,7 +127,7 @@ class _HistoryListTile extends ConsumerWidget {
             context,
             MaterialPageRoute(
               builder: (_) => SpeakingHistoryDetailScreen(
-                id: item.sessionId,
+                sessionId: item.sessionId,
                 topic: item.topic,
               ),
             ),
