@@ -298,6 +298,9 @@ class _DeckionaryAppState extends ConsumerState<DeckionaryApp>
   }
 
   Future<void> _showOverlay() async {
+    // Pop any pushed routes so they don't cover the overlay.
+    _navigatorKey.currentState?.popUntil((r) => r.isFirst);
+
     // 1. Configure overlay + space-jump BEFORE showing (same as original)
     await _windowChannel.invokeMethod('setOverlayMode');
     await _windowChannel.invokeMethod('prepareForShow');
