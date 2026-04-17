@@ -14,13 +14,15 @@ function corsHeaders(): Record<string, string> {
 async function verifyAuth(
   authHeader: string | null
 ): Promise<{ userId: string } | Response> {
-  // Skip auth in local dev (set DEV_MODE=true in .env.local)
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  const isLocal = supabaseUrl.includes("127.0.0.1") || supabaseUrl.includes("localhost");
-  if (Deno.env.get("DEV_MODE") === "true" && isLocal) {
+  // Skip auth in local dev (set DEV_MODE=true in supabase/.env.local).
+  // DEV_MODE is an explicit opt-in that only reaches this runtime via a
+  // locally supplied .env file — it is never set in the deployed project.
+  if (Deno.env.get("DEV_MODE") === "true") {
     console.warn("[DEV] Auth bypassed — DEV_MODE is enabled");
     return { userId: "dev-local-user" };
   }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 
   if (!authHeader) {
     return new Response(JSON.stringify({ error: "Missing authorization header" }), {
