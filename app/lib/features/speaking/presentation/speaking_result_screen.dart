@@ -48,10 +48,12 @@ class SpeakingResultScreen extends ConsumerWidget {
       },
       child: Scaffold(
         appBar: AppBar(
+          toolbarHeight: 72,
           title: Text(
             session.topic,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium,
           ),
         ),
         body: SingleChildScrollView(

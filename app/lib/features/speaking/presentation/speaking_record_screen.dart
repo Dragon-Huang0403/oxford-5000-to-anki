@@ -140,7 +140,13 @@ class _SpeakingRecordScreenState extends ConsumerState<SpeakingRecordScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(topicLabel, maxLines: 1, overflow: TextOverflow.ellipsis),
+        toolbarHeight: 72,
+        title: Text(
+          topicLabel,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
       ),
       body: SafeArea(
         child: Column(
